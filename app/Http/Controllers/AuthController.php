@@ -23,7 +23,7 @@ use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 
-use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Cache;
 
 class AuthController extends BaseController
 {
@@ -155,27 +155,24 @@ public function user(Request $request)
 
     
     // Private method to cache user data
-    private function cacheUser($user)
+private function cacheUser($user)
 {
     $user->load('roles'); // Cargar roles u otras relaciones necesarias
-    Redis::set('user:' . $user->id, serialize($user));
-    Redis::expire('user:' . $user->id, 60 * 60 * 24); // Cache for 1 day
+    Cache::put('user:' . $user->id, $user, 60 * 60 * 24); // Cache for 1 day
 }
 
-
-    private function getCachedUser($userId)
-    {
-    $cachedUser = Redis::get('user:' . $userId);
+private function getCachedUser($userId)
+{
+    $cachedUser = Cache::get('user:' . $userId);
     if ($cachedUser) {
-        return unserialize($cachedUser);
+        return $cachedUser;
     }
 
     $user = User::findOrFail($userId);
     $this->cacheUser($user);
 
     return $user;
-    }
-
+}
 
 
 
