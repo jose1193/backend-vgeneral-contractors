@@ -180,8 +180,8 @@ class UserService
         $user->save();
 
         // Enviar correo electrónico al usuario con las credenciales
-        SendWelcomeEmailWithCredentials::dispatch($user,$passwordMessage);
-        //Mail::to($user->email)->send(new WelcomeMailWithCredentials($user,$passwordMessage));
+        //SendWelcomeEmailWithCredentials::dispatch($user,$passwordMessage);
+        Mail::to($user->email)->send(new WelcomeMailWithCredentials($user,$passwordMessage));
 
         // Actualizar la caché de usuarios
         $this->updateUsersCache();
