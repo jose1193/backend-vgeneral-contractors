@@ -25,6 +25,8 @@ use App\Http\Resources\UserResource;
 
 use App\Services\UserService;
 
+
+
 class UsersController extends BaseController
 {
 
@@ -37,7 +39,7 @@ class UsersController extends BaseController
     public function __construct(UserService $userService)
     {
          // Middleware para permisos
-        $this->middleware('check.permission:Super Master')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+        $this->middleware('check.permission:Super Admin')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
         
         $this->userService = $userService;
     }
@@ -97,7 +99,7 @@ public function store(CreateUserRequest $request)
        
         // Utilizar el servicio para almacenar el usuario
         $user = $this->userService->storeUser($details);
-
+        
         return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
     } catch (\Exception $ex) {
         return response()->json(['message' => 'Error occurred while creating user', 'error' => $ex->getMessage()], 500);

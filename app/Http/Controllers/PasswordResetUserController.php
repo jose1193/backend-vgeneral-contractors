@@ -66,14 +66,14 @@ public function store(ForgotPasswordUserRequest $request)
         ]);
 
         // Enviar correo electrónico al usuario
-        //Mail::to($user->email)->send(new ResetPasswordMail($pin));
-        SendMailResetPassword::dispatch($user->email,$pin);
+        Mail::to($user->email)->send(new ResetPasswordMail($pin));
+        //SendMailResetPassword::dispatch($user->email,$pin);
 
         DB::commit();
 
         // Devolver una respuesta adecuada
         return response()->json([
-            'message' => 'Reset password instructions sent successfully',
+            'success' => 'Reset password instructions sent successfully',
             'token' => $token,
             'token_type' => 'Bearer',
             'user' => new ForgotPasswordUserResource($passwordResetUser)
@@ -158,11 +158,11 @@ public function updatePassword(UpdatePasswordResetRequest $request)
            
 
             // Envía el correo electrónico de confirmación de cambio de contraseña
-            //Mail::to($user->email)->send(new PasswordResetSuccess($user));
-            SendMailPasswordResetSuccess::dispatch($user);
+            Mail::to($user->email)->send(new PasswordResetSuccess($user));
+            //SendMailPasswordResetSuccess::dispatch($user);
         });
 
-        return response()->json(['message' => 'Password updated successfully'], 200);
+        return response()->json(['success' => 'Password updated successfully'], 200);
     }  catch (\Throwable $e) {
     // Manejar cualquier tipo de excepción y devolver una respuesta de error
     Log::error('Failed to update password: ' . $e->getMessage());

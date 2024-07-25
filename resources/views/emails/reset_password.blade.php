@@ -302,7 +302,7 @@
                                                             <div
                                                                 style="
                                     font-size: 14px;
-                                    color: #79005d;
+                                    color: #000000;
                                     line-height: 170%;
                                     text-align: left;
                                     word-wrap: break-word;
@@ -386,7 +386,7 @@
                                                                         PIN code is:<strong>
                                                                             <span
                                                                                 style="
-                                            color: #79005d;
+                                            color: #000000;
                                             line-height: 30.6px;
                                             font-family: arial, helvetica,
                                               sans-serif;
@@ -426,7 +426,7 @@
                                                             <div
                                                                 style="
                                     font-size: 14px;
-                                    color: #79005d;
+                                    color: #000000;
                                     line-height: 70%;
                                     text-align: left;
                                     word-wrap: break-word;
@@ -444,7 +444,7 @@
                                             line-height: 7px;
                                           ">This
                                                                                 link will expire in <span
-                                                                                    style=" color: #79005d;font-weight:bold;">30
+                                                                                    style=" color: #000000;font-weight:bold;">30
                                                                                     minutes.</span>
                                                                                 If you continue to have
                                                                                 problems<br />please
@@ -524,7 +524,7 @@
                                                             <div
                                                                 style="
                                     font-size: 14px;
-                                    color: #79005d;
+                                    color: #000000;
                                     line-height: 140%;
                                     text-align: left;
                                     word-wrap: break-word;
@@ -579,7 +579,7 @@
                                             line-height: 34px;
                                             font-size: 20px;
                                           ">Download
-                                                                                and Enjoy!</span></strong></span>
+                                                                            </span></strong></span>
                                                                 </p>
                                                             </div>
                                                         </td>
@@ -968,7 +968,7 @@
                   overflow-wrap: break-word;
                   word-wrap: break-word;
                   word-break: break-word;
-                  background-color: #79005d;
+                  background-color: #000000;
                 ">
                             <div
                                 style="

@@ -19,12 +19,26 @@ class LoginRequest extends FormRequest {
      *
      * @return array<string, \Illuminate\Contracts\Validation\Rule|array|string>
      */
-    public function rules(): array {
-        return [
-            'email' => 'required|email|exists:users,email',
-             'password' => 'required|string|min:5|max:10',
-        ];
-    }
+   // LoginRequest.php
+
+public function rules(): array
+{
+    return [
+        'email' => 'required|string',
+        'password' => 'required|string|min:5|max:10',
+    ];
+}
+
+public function validate()
+{
+    $rules = $this->rules();
+
+    $loginField = filter_var($this->input('email'), FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+    $rules[$loginField] = 'exists:users,' . $loginField;
+
+    return validator($this->all(), $rules);
+}
 
 
     public function failedValidation(Validator $validator)

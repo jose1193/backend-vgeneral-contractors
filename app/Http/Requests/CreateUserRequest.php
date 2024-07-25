@@ -8,6 +8,9 @@ use Illuminate\Contracts\Validation\Validator;
 
 use Illuminate\Validation\Rules\Password;
 
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Route;
+
 class CreateUserRequest extends FormRequest
 {
     /**
@@ -23,19 +26,33 @@ class CreateUserRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array|string>
      */
-    public function rules(): array
+   public function rules(): array
 {
-    // Verifica si la ruta actual es 'api/store'
-    $isStoreRoute = request()->routeIs('api/register');
+    // Verifica si la ruta actual es para registro
+    $isRegisterRoute = Route::currentRouteName() === 'api/register';
 
-    return [
-        'name' => [$isStoreRoute ? 'required' : 'nullable', 'string', 'max:40', 'regex:/^[a-zA-Z\s]+$/'],
+    // Obtén el ID del usuario actual (si existe)
+    $userId = auth()->id();
+
+    $rules = [
+        'name' => ['required', 'string', 'max:40', 'regex:/^[a-zA-Z\s]+$/'],
         'last_name' => ['nullable', 'string', 'max:40', 'regex:/^[a-zA-Z\s]+$/'],
-        'username' => [ $isStoreRoute ? 'required' : 'nullable', 'string', 'max:30', 'unique:users', 'regex:/^[a-zA-Z0-9_]+$/'],
+        'username' => [
+            'required',
+            'string',
+            'max:30',
+            'regex:/^[a-zA-Z0-9_]+$/',
+        ],
         'register_date' => ['nullable', 'string', 'max:255'],
-        'email' => [$isStoreRoute ? 'required' : 'nullable', 'string', 'email', 'min:10', 'max:255', 'unique:users'],
+        'email' => [
+            'required',
+            'string',
+            'email',
+            'min:10',
+            'max:255',
+        ],
         'password' => [
-            'nullable',
+            $isRegisterRoute ? 'required' : 'nullable',
             'string',
             Password::min(5)->mixedCase()->numbers()->symbols()->uncompromised(),
         ],
@@ -45,13 +62,25 @@ class CreateUserRequest extends FormRequest
         'city' => ['nullable', 'string', 'max:255'],
         'country' => ['nullable', 'string', 'max:255'],
         'gender' => ['nullable', 'in:male,female,other'],
-        'role_id' => [$isStoreRoute ? 'required' : 'nullable', 'exists:roles,id'],
+        'user_role' => [$isRegisterRoute ? 'required' : 'nullable', 'exists:roles,id'],
         'provider' => ['nullable', 'min:4', 'max:20'],
         'provider_id' => ['nullable', 'min:4', 'max:30'],
         'provider_avatar' => ['nullable', 'min:4', 'max:255'],
     ];
-}
 
+    // Aplica la regla 'unique' de manera condicional
+    if ($isRegisterRoute) {
+        // Para registro, username y email deben ser únicos
+        $rules['username'][] = 'unique:users';
+        $rules['email'][] = 'unique:users';
+    } else {
+        // Para actualización, ignora el usuario actual
+        $rules['username'][] = Rule::unique('users')->ignore($userId);
+        $rules['email'][] = Rule::unique('users')->ignore($userId);
+    }
+
+    return $rules;
+}
 
     public function failedValidation(Validator $validator)
 

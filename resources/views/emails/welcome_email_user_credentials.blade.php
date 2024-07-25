@@ -293,115 +293,129 @@
                                                 <tbody>
                                                     <tr>
                                                         <td style="
-                                  overflow-wrap: break-word;
-                                  word-break: break-word;
-                                  padding: 10px 40px 25px;
-                                  font-family: 'Arial', sans-serif;
-                                "
+                overflow-wrap: break-word;
+                word-break: break-word;
+                padding: 10px 40px 25px;
+                font-family: 'Arial', sans-serif;
+            "
                                                             align="left">
                                                             <div
                                                                 style="
-                                    font-size: 14px;
-                                    color: #000000;
-                                    line-height: 170%;
-                                    text-align: left;
-                                    word-wrap: break-word;
-                                  ">
+                    font-size: 14px;
+                    color: #000000;
+                    line-height: 170%;
+                    text-align: left;
+                    word-wrap: break-word;
+                ">
                                                                 <p
                                                                     style="
-                                      font-size: 14px;
-                                      line-height: 170%;
-                                      text-align: center;
-                                    ">
+                        font-size: 14px;
+                        line-height: 170%;
+                        text-align: center;
+                    ">
                                                                     <span
                                                                         style="
-                                        font-size: 20px;
-                                        line-height: 34px;
-                                        font-family: arial, helvetica,
-                                          sans-serif;
-                                      "><strong>Password
-                                                                            Reset Successfully</strong></span>
+                            font-size: 20px;
+                            line-height: 34px;
+                            font-family: arial, helvetica, sans-serif;
+                        "><strong>Registration
+                                                                            Successful</strong></span>
                                                                 </p>
                                                                 <p
                                                                     style="
-                                      font-size: 14px;
-                                      line-height: 170%;
-                                      text-align: left;
-                                    ">
-
+                        font-size: 14px;
+                        line-height: 170%;
+                        text-align: left;
+                    ">
                                                                 </p>
                                                                 <br>
                                                                 <p
                                                                     style="
-                                      font-size: 14px;
-                                      line-height: 170%;
-                                      text-align: left;
-                                    ">
+                        font-size: 14px;
+                        line-height: 170%;
+                        text-align: left;
+                    ">
                                                                     <span
                                                                         style="
-                                        font-size: 16px;
-                                        line-height: 27.2px;
-                                        color: #000000;
-                                        font-family: arial, helvetica,
-                                          sans-serif;
-                                      ">Hello,
+                            font-size: 16px;
+                            line-height: 27.2px;
+                            color: #000000;
+                            font-family: arial, helvetica, sans-serif;
+                        ">Hello,
                                                                         <span
-                                                                            style="color:#000000;font-weight:bold;">{{ $user->name }}</span></span>
+                                                                            style="color:#000000;font-weight:bold;">{{ $user->name }}</span>
+                                                                    </span>
                                                                 </p>
                                                                 <br>
                                                                 <p
                                                                     style="
-                                      font-size: 14px;
-                                      line-height: 170%;
-                                      text-align: left;
-                                    ">
+                        font-size: 14px;
+                        line-height: 170%;
+                        text-align: left;
+                    ">
                                                                     <span
                                                                         style="
-                                        font-size: 16px;
-                                        line-height: 27.2px;
-                                        color: #000000;
-                                        font-family: arial, helvetica,
-                                          sans-serif;
-                                      ">Your
-                                                                        password has been successfully reset. </span>
+                            font-size: 16px;
+                            line-height: 27.2px;
+                            color: #000000;
+                            font-family: arial, helvetica, sans-serif;
+                        ">Your
+                                                                        registration has been successfully completed.
+                                                                        Below are your access details:</span>
                                                                 </p>
                                                                 <p
                                                                     style="
-                                      font-size: 14px;
-                                      line-height: 170%;
-                                      text-align: left;
-                                    ">
-
+                        font-size: 14px;
+                        line-height: 170%;
+                        text-align: left;
+                    ">
                                                                 </p>
                                                                 <br>
                                                                 <p style="line-height: 170%">
                                                                     <span
                                                                         style="
-                                        color: #000000;
-                                        line-height: 27.2px;
-                                        font-size: 16px;
-                                        font-family: arial, helvetica,
-                                          sans-serif;
-                                      "><strong>
-                                                                            <span
-                                                                                style="
-                                            color: #000000;
-                                            line-height: 30.6px;
-                                            font-family: arial, helvetica,
-                                              sans-serif;
-                                            font-size: 18px;
-                                          "></span></strong></span>
+                            color: #000000;
+                            line-height: 27.2px;
+                            font-size: 16px;
+                            font-family: arial, helvetica, sans-serif;
+                        ">
+                                                                        <strong>Username: </strong><span
+                                                                            style="color:#000000;">{{ $user->username }}</span>
+                                                                    </span>
+                                                                </p>
+                                                                <p style="line-height: 170%">
+                                                                    <span
+                                                                        style="
+                            color: #000000;
+                            line-height: 27.2px;
+                            font-size: 16px;
+                            font-family: arial, helvetica, sans-serif;
+                        ">
+                                                                        <strong>Email: </strong><span
+                                                                            style="color:#000000;">{{ $user->email }}</span>
+                                                                    </span>
+                                                                </p>
+                                                                <p style="line-height: 170%">
+                                                                    <span
+                                                                        style="
+                            color: #000000;
+                            line-height: 27.2px;
+                            font-size: 16px;
+                            font-family: arial, helvetica, sans-serif;
+                        ">
+                                                                        <strong>Password: </strong><span
+                                                                            style="color:#000000;">{{ $password }}</span>
+                                                                    </span>
                                                                 </p>
                                                                 <p style="line-height: 170%"> </p>
                                                                 <p style="line-height: 170%">
                                                                     <span
                                                                         style="
-                                        color: #000000;
-                                        line-height: 20.4px;
-                                        font-size: 12px;
-                                        font-family: arial, helvetica,
-                                          sans-serif;
-                                      ">If
+                            color: #000000;
+                            line-height: 20.4px;
+                            font-size: 12px;
+                            font-family: arial, helvetica, sans-serif;
+                        ">If
                                                                         you did not request this, please contact support
                                                                         immediately.</span>
                                                                 </p>
@@ -416,38 +430,38 @@
                                                 <tbody>
                                                     <tr>
                                                         <td style="
-                                  overflow-wrap: break-word;
-                                  word-break: break-word;
-                                  padding: 10px 40px 25px;
-                                  font-family: 'Raleway', sans-serif;
-                                "
+                overflow-wrap: break-word;
+                word-break: break-word;
+                padding: 10px 40px 25px;
+                font-family: 'Raleway', sans-serif;
+            "
                                                             align="left">
                                                             <div
                                                                 style="
-                                    font-size: 14px;
-                                    color: #000000;
-                                    line-height: 70%;
-                                    text-align: left;
-                                    word-wrap: break-word;
-                                  ">
+                    font-size: 14px;
+                    color: #000000;
+                    line-height: 70%;
+                    text-align: left;
+                    word-wrap: break-word;
+                ">
                                                                 <p style="line-height: 70%; text-align: center">
                                                                     <span
                                                                         style="
-                                        line-height: 8.4px;
-                                        font-size: 12px;
-                                        font-family: arial, helvetica,
-                                          sans-serif;
-                                      "><sup><span
+                            line-height: 8.4px;
+                            font-size: 12px;
+                            font-family: arial, helvetica, sans-serif;
+                        "><sup><span
                                                                                 style="
-                                            color: #000000;
-                                            line-height: 7px;
-                                          "></span></sup></span>
+                                color: #000000;
+                                line-height: 7px;
+                            "></span></sup></span>
                                                                 </p>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 </tbody>
                                             </table>
+
 
                                             <!--[if (!mso)&(!IE)]><!-->
                                         </div>
@@ -571,7 +585,7 @@
                                             line-height: 34px;
                                             font-size: 20px;
                                           ">Download
-                                                                            </span></strong></span>
+                                                                                !</span></strong></span>
                                                                 </p>
                                                             </div>
                                                         </td>

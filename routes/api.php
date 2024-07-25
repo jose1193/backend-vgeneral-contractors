@@ -18,6 +18,8 @@ use App\Http\Controllers\BiometricAuthController;
 use App\Http\Controllers\SocialLoginController;
 use App\Http\Controllers\CreateUserController;
 use App\Http\Controllers\PasswordResetUserController;
+use App\Http\Controllers\TypeDamageController;
+
 
 //Route::get('/user', function (Request $request) {
     //return $request->user();
@@ -62,7 +64,9 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     Route::get('user', [AuthController::class, 'user']);
     //Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('update-password', [AuthController::class, 'updatePassword']);
-    
+    Route::get('/username-check/{username}', [AuthController::class, 'checkUsernameAvailability']);
+    Route::get('/email-check/{email}', [AuthController::class, 'checkEmailAvailability']);
+
     //Route::post('reset-password', [AuthController::class, 'resetPassword']);
     Route::post('update-profile', [CreateUserController::class, 'update']);
     Route::post('update-profile-photo', [ProfilePhotoController::class, 'update']);
@@ -104,7 +108,17 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     // Routes related to Biometric Login
     Route::post('/biometric-login', [BiometricAuthController::class, 'store']);
 
-   
+   // Routes related to Users
+    Route::prefix('type-damage')->group(function () {
+    Route::get('/', [TypeDamageController::class, 'index']);    
+    Route::post('/store', [TypeDamageController::class, 'store']); 
+    Route::get('/{uuid}', [TypeDamageController::class, 'show']); 
+    Route::patch('/update/{uuid}', [TypeDamageController::class, 'update']); 
+  
+    Route::delete('delete/{uuid}', [TypeDamageController::class, 'destroy']);
+    
+    
+    }); 
     // Otras rutas protegidas...
 });
     

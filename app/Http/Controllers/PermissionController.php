@@ -10,7 +10,7 @@ class PermissionController extends BaseController
 {
     public function __construct()
     {
-        $this->middleware('check.permission:Super Master')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+        $this->middleware('check.permission:Super Admin')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     }
 
     public function index(Request $request)

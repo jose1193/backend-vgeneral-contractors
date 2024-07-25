@@ -34,7 +34,9 @@ class AuthController extends BaseController
     
     public function login(LoginRequest $request)
 {
-    $user = User::where('email', $request->email)->firstOrFail();
+    $loginField = filter_var($request->input('email'), FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+
+    $user = User::where($loginField, $request->input('email'))->firstOrFail();
 
     if (!Hash::check($request->password, $user->password)) {
         return $this->sendFailedLoginResponse();
@@ -145,7 +147,7 @@ public function user(Request $request)
 
             $this->cacheUser($user);
 
-            return response()->json(['message' => 'Password updated successfully']);
+            return response()->json(['success' => 'Password updated successfully']);
         } catch (ValidationException $e) {
             return response()->json(['error' => $e->errors()], 422);
         } catch (\Exception $e) {
@@ -175,5 +177,52 @@ private function getCachedUser($userId)
 }
 
 
+ public function checkEmailAvailability($email)
+{
+   
+
+    // Obtener el usuario actualmente autenticado
+    $currentUser = auth()->user();
+
+    // Verificar si el correo pertenece al usuario autenticado
+    if ($currentUser && $currentUser->email === $email) {
+        return response()->json([
+            'available' => true,
+            'message' => ''
+        ], 200);
+    }
+
+    // Verificar si el correo ya está en la base de datos
+    $exists = User::where('email', $email)->exists();
+
+    return response()->json([
+        'available' => !$exists,
+        'message' => $exists ? 'Email is already taken' : 'Email is available'
+    ], 200);
+}
+
+public function checkUsernameAvailability($username)
+{
+   
+
+    // Obtener el usuario actualmente autenticado
+    $currentUser = auth()->user();
+
+    // Verificar si el nombre de usuario pertenece al usuario autenticado
+    if ($currentUser && $currentUser->username === $username) {
+        return response()->json([
+            'available' => true,
+            'message' => ''
+        ], 200);
+    }
+
+    // Verificar si el nombre de usuario ya está en la base de datos
+    $exists = User::where('username', $username)->exists();
+
+    return response()->json([
+        'available' => !$exists,
+        'message' => $exists ? 'Username is already taken' : 'Username is available'
+    ], 200);
+}
 
 }

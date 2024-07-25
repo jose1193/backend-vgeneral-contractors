@@ -3,8 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Foodly APIs</title>
-    <meta name="theme-color" content="#79005d" />
+    <title>V General Contractors APIs</title>
+    <meta name="theme-color" content="#000000" />
     <link rel="stylesheet" type="text/css" href="{{ env('APP_URL') }}/swagger/swagger-ui.min.css">
     <link rel="icon" type="image/png" href="{{ env('APP_URL') }}/favicon/favicon-32x32.png" sizes="32x32" />
     <link rel="icon" type="image/png" href="{{ env('APP_URL') }}/favicon/favicon-16x16.png" sizes="16x16" />
@@ -30,18 +30,20 @@
 
 
         .swagger-ui .topbar-wrapper {
-            background-color: #79005d;
+            background-color: #000000;
         }
 
         .swagger-ui .topbar-wrapper img {
-            background-color: #79005d;
-            content: url('{{ env('APP_URL') }}/img/logo-white.png');
+            background-color: #000000;
+            content: url('{{ env('APP_URL') }}/img/logo-white-swagger.png');
+
+            height: 50px;
         }
 
 
 
         .swagger-ui .topbar {
-            background-color: #79005d;
+            background-color: #000000;
         }
     </style>
 </head>

@@ -37,4 +37,6 @@ class ApiResponseClass
     {
         return response()->json($result, $code);
     }
+
+    
 }

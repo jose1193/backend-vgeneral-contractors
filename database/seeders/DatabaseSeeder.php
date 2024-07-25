@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\TypeDamage;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 use Spatie\Permission\Models\Permission;
@@ -23,41 +24,40 @@ class DatabaseSeeder extends Seeder
        // Definición de Permisos
 $permissions = [
     // Administración y Supervisión Global
-    Permission::create(['name' => 'Super Master', 'guard_name' => $guardName]), // $permissions[0]
-    Permission::create(['name' => 'Super Admin', 'guard_name' => $guardName]), // $permissions[1]
-    Permission::create(['name' => 'Administrators', 'guard_name' => $guardName]), // $permissions[2]
+    Permission::create(['name' => 'Super Admin', 'guard_name' => $guardName]), // $permissions[0]
+    Permission::create(['name' => 'Administrators', 'guard_name' => $guardName]), // $permissions[1]
     
     // Gestión de Equipos y Departamentos
-    Permission::create(['name' => 'Manager', 'guard_name' => $guardName]), // $permissions[3]
-    Permission::create(['name' => 'Marketing Manager', 'guard_name' => $guardName]), // $permissions[4]
-    Permission::create(['name' => 'Director Assistant', 'guard_name' => $guardName]), // $permissions[5]
-    Permission::create(['name' => 'Technical Supervisor', 'guard_name' => $guardName]), // $permissions[6]
+    Permission::create(['name' => 'Manager', 'guard_name' => $guardName]), // $permissions[2]
+    Permission::create(['name' => 'Marketing Manager', 'guard_name' => $guardName]), // $permissions[3]
+    Permission::create(['name' => 'Director Assistant', 'guard_name' => $guardName]), // $permissions[4]
+    Permission::create(['name' => 'Technical Supervisor', 'guard_name' => $guardName]), // $permissions[5]
 
     // Empresas y Operadores Externos
-    Permission::create(['name' => 'Representation Company', 'guard_name' => $guardName]), // $permissions[7]
-    Permission::create(['name' => 'Public Company', 'guard_name' => $guardName]), // $permissions[8]
-    Permission::create(['name' => 'External Operators', 'guard_name' => $guardName]), // $permissions[9]
+    Permission::create(['name' => 'Representation Company', 'guard_name' => $guardName]), // $permissions[6]
+    Permission::create(['name' => 'Public Company', 'guard_name' => $guardName]), // $permissions[7]
+    Permission::create(['name' => 'External Operators', 'guard_name' => $guardName]), // $permissions[8]
     
     // Ajustadores y Servicios Especializados
-    Permission::create(['name' => 'Public Adjuster', 'guard_name' => $guardName]), // $permissions[10]
-    Permission::create(['name' => 'Insurance Adjuster', 'guard_name' => $guardName]), // $permissions[11]
-    Permission::create(['name' => 'Technical Services', 'guard_name' => $guardName]), // $permissions[12]
-    Permission::create(['name' => 'Marketing', 'guard_name' => $guardName]), // $permissions[13]
+    Permission::create(['name' => 'Public Adjuster', 'guard_name' => $guardName]), // $permissions[9]
+    Permission::create(['name' => 'Insurance Adjuster', 'guard_name' => $guardName]), // $permissions[10]
+    Permission::create(['name' => 'Technical Services', 'guard_name' => $guardName]), // $permissions[11]
+    Permission::create(['name' => 'Marketing', 'guard_name' => $guardName]), // $permissions[12]
     
     // Operaciones y Soporte Interno
-    Permission::create(['name' => 'Warehouse', 'guard_name' => $guardName]), // $permissions[14]
-    Permission::create(['name' => 'Administrative', 'guard_name' => $guardName]), // $permissions[15]
-    Permission::create(['name' => 'Collections', 'guard_name' => $guardName]), // $permissions[16]
+    Permission::create(['name' => 'Warehouse', 'guard_name' => $guardName]), // $permissions[13]
+    Permission::create(['name' => 'Administrative', 'guard_name' => $guardName]), // $permissions[14]
+    Permission::create(['name' => 'Collections', 'guard_name' => $guardName]), // $permissions[15]
     
     // Acceso a Informes y Prospectos
-    Permission::create(['name' => 'Reportes', 'guard_name' => $guardName]), // $permissions[17]
-    Permission::create(['name' => 'Lead', 'guard_name' => $guardName]), // $permissions[18]
+    Permission::create(['name' => 'Reportes', 'guard_name' => $guardName]), // $permissions[16]
+    Permission::create(['name' => 'Lead', 'guard_name' => $guardName]), // $permissions[17]
     
     // Usuarios Generales
-    Permission::create(['name' => 'Employees', 'guard_name' => $guardName]), // $permissions[19]
-    Permission::create(['name' => 'Client', 'guard_name' => $guardName]), // $permissions[20]
-    Permission::create(['name' => 'Contact', 'guard_name' => $guardName]), // $permissions[21]
-    Permission::create(['name' => 'Spectator', 'guard_name' => $guardName]), // $permissions[22]
+    Permission::create(['name' => 'Employees', 'guard_name' => $guardName]), // $permissions[18]
+    Permission::create(['name' => 'Client', 'guard_name' => $guardName]), // $permissions[19]
+    Permission::create(['name' => 'Contact', 'guard_name' => $guardName]), // $permissions[20]
+    Permission::create(['name' => 'Spectator', 'guard_name' => $guardName]), // $permissions[21]
 ];
 
 
@@ -66,47 +66,10 @@ $permissions = [
 
     // Creación y Asignación de Roles
 
-     // SUPER MASTER USER
-$superMasterRole = Role::create(['name' => 'Super Master', 'guard_name' => $guardName]);
-$superMasterRole->syncPermissions($permissions);
-
-$superMasterUser = User::factory()->create([
-    'name' => 'Super Master',
-    'username' => 'supermaster24',
-    'email' => 'supermaster@company.com',
-    'uuid' => Uuid::uuid4()->toString(), 
-    'phone' => '00001',
-    'password' => bcrypt('Gc98765=')
-]);
-$superMasterUser->assignRole($superMasterRole);
-// END SUPER MASTER USER
 
 // SUPER ADMIN USER
 $superAdminRole = Role::create(['name' => 'Super Admin', 'guard_name' => $guardName]);
-$superAdminRole->syncPermissions([
-    $permissions[1],  // Super Admin
-    $permissions[2],  // Administrators
-    $permissions[3],  // Manager
-    $permissions[4],  // Marketing Manager
-    $permissions[5],  // Director Assistant
-    $permissions[6],  // Technical Supervisor
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
-]); 
+$superAdminRole->syncPermissions($permissions);
 
 $superAdminUser = User::factory()->create([
     'name' => 'Super Admin',
@@ -124,27 +87,27 @@ $superAdminUser->assignRole($superAdminRole);
      // ADMIN USER
 $adminRole = Role::create(['name' => 'Admin', 'guard_name' => $guardName]);
 $adminRole->syncPermissions([
-    $permissions[2],  // Administrators
-    $permissions[3],  // Manager
-    $permissions[4],  // Marketing Manager
-    $permissions[5],  // Director Assistant
-    $permissions[6],  // Technical Supervisor
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[1],  // Administrators
+    $permissions[2],  // Manager
+    $permissions[3],  // Marketing Manager
+    $permissions[4],  // Director Assistant
+    $permissions[5],  // Technical Supervisor
+    $permissions[6],  // Representation Company
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]); 
 
 $adminUser = User::factory()->create([
@@ -165,26 +128,26 @@ $managerRole = Role::create(['name' => 'Manager', 'guard_name' => $guardName]);
 
 // Asignar permisos al rol de Manager
 $managerRole->syncPermissions([
-    $permissions[3],  // Manager
-    $permissions[4],  // Marketing Manager
-    $permissions[5],  // Director Assistant
-    $permissions[6],  // Technical Supervisor
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[2],  // Manager
+    $permissions[3],  // Marketing Manager
+    $permissions[4],  // Director Assistant
+    $permissions[5],  // Technical Supervisor
+    $permissions[6],  // Representation Company
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 // Creación del usuario con rol de Manager
@@ -205,25 +168,25 @@ $managerUser->assignRole($managerRole);
 $marketingManagerRole = Role::create(['name' => 'Marketing Manager', 'guard_name' => $guardName]);
 
 $marketingManagerRole->syncPermissions([
-    $permissions[4],  // Marketing Manager
-    $permissions[5],  // Director Assistant
-    $permissions[6],  // Technical Supervisor
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[3],  // Marketing Manager
+    $permissions[4],  // Director Assistant
+    $permissions[5],  // Technical Supervisor
+    $permissions[6],  // Representation Company
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $marketingManagerUser = User::factory()->create([
@@ -243,24 +206,24 @@ $marketingManagerUser->assignRole($marketingManagerRole);
 $directorAssistantRole = Role::create(['name' => 'Director Assistant', 'guard_name' => $guardName]);
 
 $directorAssistantRole->syncPermissions([
-    $permissions[5],  // Director Assistant
-    $permissions[6],  // Technical Supervisor
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[4],  // Director Assistant
+    $permissions[5],  // Technical Supervisor
+    $permissions[6],  // Representation Company
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $directorAssistantUser = User::factory()->create([
@@ -280,23 +243,23 @@ $directorAssistantUser->assignRole($directorAssistantRole);
 $technicalSupervisorRole = Role::create(['name' => 'Technical Supervisor', 'guard_name' => $guardName]);
 
 $technicalSupervisorRole->syncPermissions([
-    $permissions[6],  // Technical Supervisor
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[5],  // Technical Supervisor
+    $permissions[6],  // Representation Company
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $technicalSupervisorUser = User::factory()->create([
@@ -317,22 +280,22 @@ $technicalSupervisorUser->assignRole($technicalSupervisorRole);
 $representationCompanyRole = Role::create(['name' => 'Representation Company', 'guard_name' => $guardName]);
 
 $representationCompanyRole->syncPermissions([
-    $permissions[7],  // Representation Company
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[6],  // Representation Company
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $representationCompanyUser = User::factory()->create([
@@ -352,21 +315,21 @@ $representationCompanyUser->assignRole($representationCompanyRole);
 $publicCompanyRole = Role::create(['name' => 'Public Company', 'guard_name' => $guardName]);
 
 $publicCompanyRole->syncPermissions([
-    $permissions[8],  // Public Company
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[7],  // Public Company
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $publicCompanyUser = User::factory()->create([
@@ -386,20 +349,20 @@ $publicCompanyUser->assignRole($publicCompanyRole);
 $externalOperatorsRole = Role::create(['name' => 'External Operators', 'guard_name' => $guardName]);
 
 $externalOperatorsRole->syncPermissions([
-    $permissions[9],  // External Operators
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[8],  // External Operators
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $externalOperatorsUser = User::factory()->create([
@@ -419,19 +382,19 @@ $externalOperatorsUser->assignRole($externalOperatorsRole);
 $publicAdjusterRole = Role::create(['name' => 'Public Adjuster', 'guard_name' => $guardName]);
 
 $publicAdjusterRole->syncPermissions([
-    $permissions[10], // Public Adjuster
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[9], // Public Adjuster
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $publicAdjusterUser = User::factory()->create([
@@ -451,18 +414,18 @@ $publicAdjusterUser->assignRole($publicAdjusterRole);
 $insuranceAdjusterRole = Role::create(['name' => 'Insurance Adjuster', 'guard_name' => $guardName]);
 
 $insuranceAdjusterRole->syncPermissions([
-    $permissions[11], // Insurance Adjuster
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[10], // Insurance Adjuster
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $insuranceAdjusterUser = User::factory()->create([
@@ -482,17 +445,17 @@ $insuranceAdjusterUser->assignRole($insuranceAdjusterRole);
 $technicalServicesRole = Role::create(['name' => 'Technical Services', 'guard_name' => $guardName]);
 
 $technicalServicesRole->syncPermissions([
-    $permissions[12], // Technical Services
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[11], // Technical Services
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $technicalServicesUser = User::factory()->create([
@@ -512,16 +475,16 @@ $technicalServicesUser->assignRole($technicalServicesRole);
 $marketingRole = Role::create(['name' => 'Marketing', 'guard_name' => $guardName]);
 
 $marketingRole->syncPermissions([
-    $permissions[13], // Marketing
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[12], // Marketing
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $marketingUser = User::factory()->create([
@@ -541,15 +504,15 @@ $marketingUser->assignRole($marketingRole);
 $warehouseRole = Role::create(['name' => 'Warehouse', 'guard_name' => $guardName]);
 
 $warehouseRole->syncPermissions([
-    $permissions[14], // Warehouse
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[13], // Warehouse
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $warehouseUser = User::factory()->create([
@@ -570,14 +533,14 @@ $warehouseUser->assignRole($warehouseRole);
 $administrativeRole = Role::create(['name' => 'Administrative', 'guard_name' => $guardName]);
 
 $administrativeRole->syncPermissions([
-    $permissions[15], // Administrative
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[14], // Administrative
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $administrativeUser = User::factory()->create([
@@ -597,13 +560,13 @@ $administrativeUser->assignRole($administrativeRole);
 $collectionsRole = Role::create(['name' => 'Collections', 'guard_name' => $guardName]);
 
 $collectionsRole->syncPermissions([
-    $permissions[16], // Collections
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[15], // Collections
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $collectionsUser = User::factory()->create([
@@ -622,12 +585,12 @@ $collectionsUser->assignRole($collectionsRole);
 $reportesRole = Role::create(['name' => 'Reportes', 'guard_name' => $guardName]);
 
 $reportesRole->syncPermissions([
-    $permissions[17], // Reportes
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[16], // Reportes
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $reportesUser = User::factory()->create([
@@ -646,11 +609,11 @@ $reportesUser->assignRole($reportesRole);
 $leadRole = Role::create(['name' => 'Lead', 'guard_name' => $guardName]);
 
 $leadRole->syncPermissions([
-    $permissions[18], // Lead
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[17], // Lead
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $leadUser = User::factory()->create([
@@ -670,10 +633,10 @@ $leadUser->assignRole($leadRole);
 $employeesRole = Role::create(['name' => 'Employees', 'guard_name' => $guardName]);
 
 $employeesRole->syncPermissions([
-    $permissions[19], // Employees
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[18], // Employees
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $employeesUser = User::factory()->create([
@@ -693,9 +656,9 @@ $employeesUser->assignRole($employeesRole);
 $clientRole = Role::create(['name' => 'Client', 'guard_name' => $guardName]);
 
 $clientRole->syncPermissions([
-    $permissions[20], // Client
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[19], // Client
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $clientUser = User::factory()->create([
@@ -715,8 +678,8 @@ $clientUser->assignRole($clientRole);
 $contactRole = Role::create(['name' => 'Contact', 'guard_name' => $guardName]);
 
 $contactRole->syncPermissions([
-    $permissions[21], // Contact
-    $permissions[22], // Spectator
+    $permissions[20], // Contact
+    $permissions[21], // Spectator
 ]);
 
 $contactUser = User::factory()->create([
@@ -736,7 +699,7 @@ $contactUser->assignRole($contactRole);
 $spectatorRole = Role::create(['name' => 'Spectator', 'guard_name' => $guardName]);
 
 $spectatorRole->syncPermissions([
-    $permissions[22], // Spectator
+    $permissions[21], // Spectator
 ]);
 
 $spectatorUser = User::factory()->create([
@@ -758,9 +721,53 @@ $spectatorUser->assignRole($spectatorRole);
             //'name' => 'Test User',
             //'email' => 'test@example.com',
         //]);
-    
-
        
+        
+        // TYPE DAMAGES
+        $typeDamages = [
+            'Kitchen',
+            'Bathroom',
+            'AC',
+            'Heater',
+            'Mold',
+            'Roof Leak',
+            'Flood',
+            'Broke Pipe',
+            'Internal Pipe',
+            'Water Heater',
+            'Roof',
+            'Overflow',
+            'Windstorm',
+            'Water Leak',
+            'Unknown',
+            'Fire Damage',
+            'Wind Damage',
+            'Hurricane',
+            'Water Damage',
+            'Slab Leak',
+            'TARP',
+            'Hail Storm',
+            'Shrink Wrap Roof',
+            'Invoice',
+            'Retarp',
+            'Mold Testing',
+            'Post-Hurricane',
+            'Mitigation',
+            'Mold Testing Clearance',
+            'Rebuild',
+            'Mold Remediation',
+            'Plumbing',
+            'Post-Storm'
+        ];
 
+        foreach ($typeDamages as $damage) {
+            TypeDamage::create([
+                'uuid' => Uuid::uuid4()->toString(),
+                'type_damage_name' => $damage,
+                'description' => 'Descripción de ' . $damage,
+                'severity' => 'low' // o 'low'/'high' dependiendo de tu lógica de negocio
+            ]);
+        }
+          // END TYPE DAMAGES
     }
 }

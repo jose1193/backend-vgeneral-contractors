@@ -11,6 +11,10 @@ use Ramsey\Uuid\Uuid;
 use Illuminate\Support\Facades\Cache;
 
 
+use Illuminate\Support\Facades\Mail;
+use App\Mail\WelcomeMailWithCredentials;
+use App\Jobs\SendWelcomeEmailWithCredentials;
+
 class UserService
 {
     protected $baseController;
@@ -67,37 +71,52 @@ class UserService
 
 
      public function updateUser(array $updateDetails, string $uuid)
-    {
-        DB::beginTransaction();
+{
+    DB::beginTransaction();
 
-        try {
-            $this->updatePassword($updateDetails);
-            $user = $this->usersRepositoryInterface->update($updateDetails, $uuid);
+    try {
+        // Obtener el usuario actual por UUID
+        $user = $this->usersRepositoryInterface->findByUuid($uuid);
+        
+        // Actualizar la contraseña si es necesario
+        $this->updatePassword($updateDetails, $user);
 
-            if (isset($updateDetails['role_id'])) {
-                $this->syncRoles($user, $updateDetails['role_id']);
-            }
+        // Actualizar el usuario
+        $user = $this->usersRepositoryInterface->update($updateDetails, $uuid);
 
-            $this->updateUsersCache();
-            DB::commit();
-
-            return $user;
-
-        } catch (\Exception $ex) {
-            DB::rollBack();
-
-           
-            throw new \Exception('Error occurred while updating user: ' . $ex->getMessage());
+        // Sincronizar roles si se han proporcionado
+        if (isset($updateDetails['user_role'])) {
+            $this->syncRoles($user, $updateDetails['user_role']);
         }
-    }
 
-    private function updatePassword(array &$input)
-    {
-        if (!empty($input['password'])) {
-            // Encriptar la nueva contraseña
-            $input['password'] = bcrypt($input['password']);
-        }
+        // Actualizar la caché de usuarios
+        $this->updateUsersCache();
+
+        // Confirmar la transacción
+        DB::commit();
+
+        return $user;
+    } catch (\Exception $ex) {
+        // Revertir la transacción en caso de error
+        DB::rollBack();
+
+        throw new \Exception('Error occurred while updating user: ' . $ex->getMessage());
     }
+}
+
+
+    private function updatePassword(array &$input, $user)
+{
+    // Verificar si se ha proporcionado una nueva contraseña y si es diferente de la actual
+    if (!empty($input['password']) && !Hash::check($input['password'], $user->password)) {
+        // Encriptar la nueva contraseña
+        $input['password'] = bcrypt($input['password']);
+    } else {
+        // Si la contraseña es la misma, mantener la actual
+        $input['password'] = $user->password;
+    }
+}
+
 
     private function syncRoles(User $user, $roleId)
     {
@@ -126,35 +145,60 @@ class UserService
         }
     }
 
-
-
     public function storeUser(array $details)
-    {
-        DB::beginTransaction();
+{
+    DB::beginTransaction();
 
-        try {
-           
-             $details['uuid'] = Uuid::uuid4()->toString();
+    try {
+        // Generar UUID para el usuario
+        $details['uuid'] = Uuid::uuid4()->toString();
 
-          
+        // Verificar si se ha proporcionado una contraseña, de lo contrario usar la contraseña por defecto
+        $isDefaultPassword = false;
+        if (!isset($details['password'])) {
+            $details['password'] = 'Gc98765=';
+            $isDefaultPassword = true;
+        }
+        
+        // Almacenar la contraseña cifrada en la base de datos
+        $encryptedPassword = bcrypt($details['password']);
+        $details['password'] = $encryptedPassword;
+
+        // Guardar el usuario en el repositorio
         $user = $this->usersRepositoryInterface->store($details);
 
-         if (isset($details['role_id'])) {
-                $this->syncRoles($user, $details['role_id']);
-            }
-
-            $this->updateUsersCache();
-            DB::commit();
-
-            return $user;
-
-        } catch (\Exception $ex) {
-            DB::rollBack();
-
-           
-            throw new \Exception('Error occurred while updating user: ' . $ex->getMessage());
+        // Sincronizar roles del usuario si se han proporcionado
+        if (isset($details['user_role'])) {
+            $this->syncRoles($user, $details['user_role']);
         }
+
+        // Preparar el mensaje de contraseña para el correo electrónico
+        $passwordMessage = $isDefaultPassword ? 'Gc98765=' : 'password registered by user';
+
+        // Establecer email_verified_at a la fecha y hora actual
+        $user->email_verified_at = now();
+        $user->save();
+
+        // Enviar correo electrónico al usuario con las credenciales
+        SendWelcomeEmailWithCredentials::dispatch($user,$passwordMessage);
+        //Mail::to($user->email)->send(new WelcomeMailWithCredentials($user,$passwordMessage));
+
+        // Actualizar la caché de usuarios
+        $this->updateUsersCache();
+
+        // Confirmar la transacción
+        DB::commit();
+
+        return $user;
+    } catch (\Exception $ex) {
+        // Revertir la transacción en caso de error
+        DB::rollBack();
+
+        throw new \Exception('Error occurred while creating user: ' . $ex->getMessage());
     }
+}
+
+
 
 
     public function showUser(string $uuid)
