@@ -7,7 +7,7 @@ use App\Interfaces\TypeDamageRepositoryInterface;
 class TypeDamageRepository implements TypeDamageRepositoryInterface
 {
     public function index(){
-        return TypeDamage::all();
+        return TypeDamage::orderBy('id', 'DESC')->get();
     }
 
      public function getByUuid(string $uuid)

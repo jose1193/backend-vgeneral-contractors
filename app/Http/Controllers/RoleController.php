@@ -24,10 +24,34 @@ class RoleController extends BaseController
 }
 
 
-    public function index()
+    public function index() {
+    $roles = DB::table('roles')
+        ->leftJoin('role_has_permissions', 'roles.id', '=', 'role_has_permissions.role_id')
+        ->leftJoin('permissions', 'role_has_permissions.permission_id', '=', 'permissions.id')
+        ->select('roles.id as role_id', 'roles.name as role_name', 'permissions.name as permission_name')
+        ->orderBy('roles.id', 'DESC')
+        ->get();
+
+    \Log::info('Raw roles data:', $roles->toArray());
+
+    $result = $roles->groupBy('role_id')->map(function ($role) {
+        $permissions = $role->pluck('permission_name')->filter()->values()->all();
+        //\Log::info("Role: {$role->first()->role_name}, Permissions: " . json_encode($permissions));
+        return [
+            'id' => $role->first()->role_id,
+            'name' => $role->first()->role_name,
+            //'permissions' => $permissions,
+        ];
+    });
+
+    return response()->json($result->values(), 200);
+}
+
+
+ public function list()
 {
     $roles = Role::orderBy('id', 'DESC')->get();
-    return response()->json(['roles' => $roles],200);
+    return response()->json($roles,200);
      
 }
 
@@ -54,14 +78,14 @@ class RoleController extends BaseController
 {
     $request->validate([
         'name' => 'required|unique:roles,name',
-        'permission' => 'required|array',
-        'permission.*' => 'exists:permissions,id',
+        'permissions' => 'required|array',
+        'permissions.*' => 'exists:permissions,id',
     ]);
 
     try {
         DB::beginTransaction();
 
-        $role = Role::create(['name' => $request->input('name')]);
+        $role = Role::create(['name' => $request->input('name'),'guard_name' => 'api']);
         $role->syncPermissions($request->input('permission'));
 
         DB::commit();

@@ -5,7 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Routing\Controller as BaseController;
-
+use Illuminate\Support\Facades\Log;
 class PermissionController extends BaseController
 {
     public function __construct()
@@ -16,7 +16,7 @@ class PermissionController extends BaseController
     public function index(Request $request)
     {
         $permissions = Permission::orderBy('id', 'DESC')->get();
-        return response()->json(['permissions' => $permissions], 200);
+        return response()->json($permissions, 200);
     }
 
     public function create()
@@ -33,6 +33,7 @@ class PermissionController extends BaseController
     try {
         $permission = Permission::create([
             'name' => $request->input('name'),
+            'guard_name' => 'api',
         ]);
 
         return response()->json(['message' => 'Permission created successfully'], 201);
@@ -81,6 +82,7 @@ class PermissionController extends BaseController
 
         return response()->json(['message' => 'Permission deleted successfully'], 200);
     } catch (\Exception $e) {
+         Log::error('Error deleting permission: ' . $e->getMessage(), ['exception' => $e]);
         return response()->json(['message' => 'Failed to delete permission'], 500);
     }
 }

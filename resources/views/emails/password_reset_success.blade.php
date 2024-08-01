@@ -1315,7 +1315,8 @@
                                           -ms-text-size-adjust: 100%;
                                           -webkit-text-size-adjust: 100%;
                                         ">
-                                                                            <span>&#160;</span>
+                                                                            <span>&#160; 1302 Waugh Dr # 810 Houston TX
+                                                                                77019</span>
                                                                         </td>
                                                                     </tr>
                                                                 </tbody>
@@ -1349,8 +1350,8 @@
                                                                         style="
                                         font-family: Arial;
                                         line-height: 19.6px;
-                                      ">Your
-                                                                        Street 12, 34567 AB City
+                                      ">
+                                                                        1302 Waugh Dr # 810 Houston TX 77019
 
 
                                                                     </span>

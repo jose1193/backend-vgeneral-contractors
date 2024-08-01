@@ -691,8 +691,8 @@
                                     word-wrap: break-word;
                                   ">
                                                                 <p style="font-size: 14px; line-height: 170%">
-                                                                    <br />Email:support@foodly.world<br />Your Street
-                                                                    12, 34567 AB City
+                                                                    <br />Email:vgeneralcontractors30@gmail.com<br />
+                                                                    1302 Waugh Dr # 810 Houston TX 77019
                                                                 </p>
                                                             </div>
                                                         </td>

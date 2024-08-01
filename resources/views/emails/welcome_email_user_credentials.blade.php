@@ -1248,7 +1248,8 @@
                                           -ms-text-size-adjust: 100%;
                                           -webkit-text-size-adjust: 100%;
                                         ">
-                                                                            <span>&#160;</span>
+                                                                            <span>&#160; 1302 Waugh Dr # 810 Houston TX
+                                                                                77019</span>
                                                                         </td>
                                                                     </tr>
                                                                 </tbody>
