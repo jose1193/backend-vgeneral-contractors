@@ -103,7 +103,7 @@ private function createUser(array $data): User
 
 private function assignUserRole(array $data, User $user)
 {
-    $role = Role::find($data['role_id']);
+    $role = Role::find($data['user_role']);
     if (!$role) {
         throw new \Exception('Invalid role ID');
     }
@@ -233,8 +233,8 @@ private function validateUsername($data, $user)
 
 private function validateRoleId($data)
 {
-    if (isset($data['role_id'])) {
-        $roleExists = Role::where('id', $data['role_id'])->exists();
+    if (isset($data['user_role'])) {
+        $roleExists = Role::where('id', $data['user_role'])->exists();
         if (!$roleExists) {
             response()->json(['message' => 'Role ID does not exist'], 409)->throwResponse();
         }
