@@ -12,7 +12,7 @@
     },
     "servers": [
         {
-            "url": "http://localhost:8080/api/"
+            "url": "http://44.203.54.211:8080/api/"
         }
     ],
     "tags": [
@@ -39,6 +39,10 @@
         {
             "name": "Users Data",
             "description": "Users Crud"
+        },
+        {
+            "name": "Type Damage",
+            "description": "Type Damage Crud"
         }
     ],
     "paths": {
@@ -1404,6 +1408,215 @@
                     }
                 }
             }
+        },
+        "/type-damage": {
+            "get": {
+                "tags": ["Type Damage"],
+                "summary": "Get all registered type damage",
+                "responses": {
+                    "200": {
+                        "description": "List of registered type damage",
+                        "content": {
+                            "application/json": {
+                                "example": [
+                                    {
+                                        "id": 1,
+                                        "uuid": "4589-a1b2c3d4-5e6f-7g8h-9i10",
+                                        "type_damage_name": "Water Damage",
+                                        "description": "Description of Water Damage"
+                                    },
+                                    {
+                                        "id": 2,
+                                        "uuid": "ID-m15n16o17p1-8q19r20s21t2",
+                                        "type_damage_name": "Roof",
+                                        "description": "Description of Roof"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "(Unauthorized) No authorization to call the service"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/type-damage/store": {
+            "post": {
+                "tags": ["Type Damage"],
+                "summary": "Store a new Type Damage",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NewTypeDamage"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Type Damage created successfully"
+                    },
+                    "401": {
+                        "description": "(Unauthorized) No authorization to call the service"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/type-damage/{uuid}": {
+            "get": {
+                "tags": ["Type Damage"],
+                "summary": "Get a type damage by UUID",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID of the data to retrieve",
+                        "required": true,
+                        "style": "simple",
+                        "explode": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Type Damage details retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "id": 1,
+                                    "uuid": "Id-c123-2556-5656",
+                                    "type_damage_name": "Water Damage",
+                                    "description": "Description of Water Damage"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "(Unauthorized) No authorization to call the service"
+                    },
+                    "404": {
+                        "description": "(NotFound) No information found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/type-damage/update/{uuid}": {
+            "patch": {
+                "tags": ["Type Damage"],
+                "summary": "Update a type damage by UUID",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID of the data to retrieve",
+                        "required": true,
+                        "style": "simple",
+                        "explode": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateTypeDamage"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Type Damage updated successfully"
+                    },
+                    "401": {
+                        "description": "(Unauthorized) No authorization to call the service"
+                    },
+                    "404": {
+                        "description": "(NotFound) No information found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/type-damage/delete/{uuid}": {
+            "delete": {
+                "tags": ["Type Damage"],
+                "summary": "Delete a Type Damage by UUID",
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "description": "UUID of the data to retrieve",
+                        "required": true,
+                        "style": "simple",
+                        "explode": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Type Damage deleted successfully"
+                    },
+                    "401": {
+                        "description": "(Unauthorized) No authorization to call the service"
+                    },
+                    "404": {
+                        "description": "(NotFound) No information found"
+                    },
+                    "500": {
+                        "description": "Server error"
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -1674,6 +1887,32 @@
                     "access_provider_token": {
                         "type": "string",
                         "description": "Access Provider Token of the Social Provider"
+                    }
+                }
+            },
+            "NewTypeDamage": {
+                "type": "object",
+                "properties": {
+                    "type_damage_name": {
+                        "type": "string",
+                        "description": "Name of the Type Damage"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description of the Type Damage"
+                    }
+                }
+            },
+            "UpdateTypeDamage": {
+                "type": "object",
+                "properties": {
+                    "type_damage_name": {
+                        "type": "string",
+                        "description": "Name of the Type Damage"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description of the Type Damage"
                     }
                 }
             },
