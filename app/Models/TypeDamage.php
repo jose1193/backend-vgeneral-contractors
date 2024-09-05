@@ -14,4 +14,9 @@ class TypeDamage extends Model
         'description',
         'severity',
     ];
+
+    public function claims()
+    {
+        return $this->hasMany(Claim::class, 'type_damage_id');
+    }
 }

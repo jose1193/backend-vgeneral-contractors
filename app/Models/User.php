@@ -65,4 +65,87 @@ class User extends Authenticatable
     {
         return $this->hasMany(Provider::class,'user_id');
     }
+
+    public function customers()
+    {
+        return $this->hasMany(Customer::class,'user_id');
+    }
+
+    public function insuranceAdjusterUser()
+    {
+        return $this->hasMany(InsuranceAdjusterAssignment::class,'insurance_adjuster_id');
+    }
+
+    public function publicAdjusterUser()
+    {
+        return $this->hasMany(PublicAdjusterAssignment::class,'public_adjuster_id');
+    }
+
+    public function allianceCompany()
+    {
+        return $this->hasMany(AllianceCompany::class,'user_id');
+    }
+
+
+    public function claim()
+    {
+        return $this->hasMany(Claim::class,'user_id_ref_by');
+    }
+
+     public function technicalAssignments()
+    {
+        return $this->hasMany(TechnicalAssignment::class, 'technical_user_id');
+    }
+
+
+    public function uploadedFiles()
+    {
+        return $this->hasMany(FilesEsx::class, 'uploaded_by');
+    }
+
+
+     public function assignedFiles()
+    {
+        return $this->hasManyThrough(File::class, FileAssignmentEsx::class, 'public_adjuster_id', 'id', 'id', 'file_id');
+    }
+
+    public function claimAgreementPreviews()
+    {
+        return $this->hasMany(ClaimAgreementPreview::class, 'generated_by');
+    }
+
+    public function documentTemplate()
+    {
+        return $this->hasMany(DocumentTemplate::class, 'uploaded_by');
+    }
+    
+    public function documentTemplateAlliance()
+    {
+        return $this->hasMany(DocumentTemplateAlliance::class, 'uploaded_by');
+    }
+
+    public function claimAgreementFulls()
+    {
+        return $this->hasMany(ClaimAgreementFull::class, 'generated_by');
+    }
+
+    public function scopeSheet()
+    {
+        return $this->hasMany(ScopeSheet::class, 'generated_by');
+    }
+
+    public function scopeSheetExportFull()
+    {
+        return $this->hasMany(ScopeSheetExport::class, 'generated_by');
+    }
+
+    public function customerSignature()
+    {
+        return $this->hasMany(CustomerSignature::class,'user_id_ref_by');
+    }
+
+    public function sellerSignature()
+    {
+        return $this->hasMany(SalespersonSignature::class,'user_id_ref_by');
+    }
 }

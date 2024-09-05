@@ -114,4 +114,79 @@ public static function deleteFileFromStorage($fullUrl)
     }
 }
 
+
+
+
+
+public static function storeFile($file, $storagePath)
+{
+    // Generar un nombre de archivo único con la extensión original
+    $uniqueFileName = self::generateUniqueFileName() . '.' . $file->getClientOriginalExtension();
+
+    // Definir la ruta de destino en S3
+    $s3Path = $storagePath . '/' . $uniqueFileName;
+
+    // Subir el archivo a S3 usando el método adecuado para manejar archivos subidos
+    Storage::disk('s3')->put($s3Path, fopen($file->getRealPath(), 'r+'));
+
+    // Retornar la URL del archivo en S3
+    return Storage::disk('s3')->url($s3Path);
+}
+
+public static function storeSignatureInS3($signatureData, $storagePath)
+{
+    // Decodificar la firma en base64
+    $imageData = base64_decode($signatureData);
+
+    // Crear una imagen a partir de los datos decodificados
+    $image = Image::make($imageData);
+
+    // Redimensionar la imagen y guardarla temporalmente
+    $resizedImagePath = self::resizeAndStoreTempImage($image);
+
+    // Generar un nombre de archivo único
+    $uniqueFileName = self::generateUniqueFileName() . '.png';
+
+    // Definir la ruta de destino en S3
+    $s3Path = $storagePath . '/' . $uniqueFileName;
+
+    // Subir la imagen redimensionada a S3
+    Storage::disk('s3')->put($s3Path, file_get_contents($resizedImagePath));
+
+    // Eliminar la imagen temporal redimensionada
+    unlink($resizedImagePath);
+
+    // Retornar la URL del archivo en S3
+    return Storage::disk('s3')->url($s3Path);
+}
+
+
+
+public static function storePDFAgreement($pdfContent, $storagePath)
+{
+    // Definir la ruta de destino en S3
+    $s3Path = $storagePath;
+
+    // Subir el archivo a S3 directamente desde el contenido del PDF
+    Storage::disk('s3')->put($s3Path, $pdfContent);
+
+    // Retornar la URL del archivo en S3
+    return Storage::disk('s3')->url($s3Path);
+}
+
+
+//public static function storePDFAgreement($pdf, $storagePath)
+//{
+    // Definir la ruta de destino en S3
+    //$s3Path = $storagePath;
+
+    // Subir el archivo a S3 directamente desde el contenido del PDF
+    //Storage::disk('s3')->put($s3Path, $pdf->output());
+
+    // Retornar la URL del archivo en S3
+    //return Storage::disk('s3')->url($s3Path);
+//}
+
+
+
 }

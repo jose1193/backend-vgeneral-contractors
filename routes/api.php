@@ -19,6 +19,31 @@ use App\Http\Controllers\SocialLoginController;
 use App\Http\Controllers\CreateUserController;
 use App\Http\Controllers\PasswordResetUserController;
 use App\Http\Controllers\TypeDamageController;
+use App\Http\Controllers\InsuranceCompanyController;
+use App\Http\Controllers\PublicCompanyController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\PropertyController;
+use App\Http\Controllers\CategoryProductController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\InsuranceAdjusterController;
+use App\Http\Controllers\PublicAdjusterController;
+use App\Http\Controllers\CompanySignatureController;
+use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\ClaimController;
+use App\Http\Controllers\FileEsxController;
+use App\Http\Controllers\ClaimCustomerSignatureController;
+use App\Http\Controllers\ClaimAgreementPreviewController;
+use App\Http\Controllers\DocumentTemplateController;
+use App\Http\Controllers\DocumentTemplateAllianceController;
+use App\Http\Controllers\ClaimAgreementFullController;
+use App\Http\Controllers\CustomerSignatureController;
+use App\Http\Controllers\ScopeSheetController;
+use App\Http\Controllers\ScopeSheetZoneController;
+use App\Http\Controllers\ScopeSheetPresentationController;
+use App\Http\Controllers\ScopeSheetZonePhotoController;
+use App\Http\Controllers\ScopeSheetExportController;
+use App\Http\Controllers\ServiceRequestController;
+use App\Http\Controllers\SalespersonSignatureController;
 
 
 //Route::get('/user', function (Request $request) {
@@ -43,8 +68,6 @@ Route::controller(PasswordResetUserController::class)->group(function () {
     Route::post('/reset-password', 'updatePassword');  
    
 });
-
-
 
 
 //Route::controller(RegisterController::class)->group(function(){
@@ -108,17 +131,275 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     // Routes related to Biometric Login
     Route::post('/biometric-login', [BiometricAuthController::class, 'store']);
 
-   // Routes related to Users
+    // Routes related to Type Damages
     Route::prefix('type-damage')->group(function () {
     Route::get('/', [TypeDamageController::class, 'index']);    
     Route::post('/store', [TypeDamageController::class, 'store']); 
     Route::get('/{uuid}', [TypeDamageController::class, 'show']); 
     Route::patch('/update/{uuid}', [TypeDamageController::class, 'update']); 
-  
     Route::delete('delete/{uuid}', [TypeDamageController::class, 'destroy']);
-    
+
     
     }); 
-    // Otras rutas protegidas...
+
+    // Routes related to Insurance Company
+    Route::prefix('insurance-company')->group(function () {
+    Route::get('/', [InsuranceCompanyController::class, 'index']);    
+    Route::post('/store', [InsuranceCompanyController::class, 'store']); 
+    Route::get('/{uuid}', [InsuranceCompanyController::class, 'show']); 
+    Route::put('/update/{uuid}', [InsuranceCompanyController::class, 'update']); 
+    Route::delete('delete/{uuid}', [InsuranceCompanyController::class, 'destroy']);
+    
+    }); 
+
+
+    // Routes related to Public Company
+    Route::prefix('public-company')->group(function () {
+    Route::get('/', [PublicCompanyController::class, 'index']);    
+    Route::post('/store', [PublicCompanyController::class, 'store']); 
+    Route::get('/{uuid}', [PublicCompanyController::class, 'show']); 
+    Route::put('/update/{uuid}', [PublicCompanyController::class, 'update']); 
+    Route::delete('delete/{uuid}', [PublicCompanyController::class, 'destroy']);
+    
+    }); 
+
+     // Routes related to Customer
+    Route::prefix('customer')->group(function () {
+    Route::get('/', [CustomerController::class, 'index']);    
+    Route::post('/store', [CustomerController::class, 'store']); 
+    Route::get('/{uuid}', [CustomerController::class, 'show']); 
+    Route::put('/update/{uuid}', [CustomerController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [CustomerController::class, 'destroy']);
+    Route::put('/restore/{uuid}', [CustomerController::class, 'restore']); 
+    });
+
+    // Routes related to CustomerProperty
+    Route::prefix('property')->group(function () {
+    Route::get('/', [PropertyController::class, 'index']);    
+    Route::post('/store', [PropertyController::class, 'store']); 
+    Route::get('/{uuid}', [PropertyController::class, 'show']); 
+    Route::put('/update/{uuid}', [PropertyController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [PropertyController::class, 'destroy']);
+    });
+
+
+    // Routes related to Product Category
+    Route::prefix('product-category')->group(function () {
+    Route::get('/', [CategoryProductController::class, 'index']);    
+    Route::post('/store', [CategoryProductController::class, 'store']); 
+    Route::get('/{uuid}', [CategoryProductController::class, 'show']); 
+    Route::put('/update/{uuid}', [CategoryProductController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [CategoryProductController::class, 'destroy']);
+
+    });
+
+     // Routes related to Product
+    Route::prefix('product')->group(function () {
+    Route::get('/', [ProductController::class, 'index']);    
+    Route::post('/store', [ProductController::class, 'store']); 
+    Route::get('/{uuid}', [ProductController::class, 'show']); 
+    Route::put('/update/{uuid}', [ProductController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ProductController::class, 'destroy']);
+    Route::put('/restore/{uuid}', [ProductController::class, 'restore']); 
+    });
+
+     // Routes related to Insurance Adjuster
+    Route::prefix('insurance-adjuster')->group(function () {
+    Route::get('/', [InsuranceAdjusterController::class, 'index']);    
+    Route::post('/store', [InsuranceAdjusterController::class, 'store']); 
+    Route::get('/{uuid}', [InsuranceAdjusterController::class, 'show']); 
+    Route::put('/update/{uuid}', [InsuranceAdjusterController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [InsuranceAdjusterController::class, 'destroy']);
+   
+    });
+
+     // Routes related to Public Adjuster
+    Route::prefix('public-adjuster')->group(function () {
+    Route::get('/', [PublicAdjusterController::class, 'index']);    
+    Route::post('/store', [PublicAdjusterController::class, 'store']); 
+    Route::get('/{uuid}', [PublicAdjusterController::class, 'show']); 
+    Route::put('/update/{uuid}', [PublicAdjusterController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [PublicAdjusterController::class, 'destroy']);
+   
+    });
+
+     // Routes related to Company Signature
+    Route::prefix('company-signature')->group(function () {
+    Route::get('/', [CompanySignatureController::class, 'index']);    
+    Route::post('/store', [CompanySignatureController::class, 'store']); 
+    Route::get('/{uuid}', [CompanySignatureController::class, 'show']); 
+    Route::put('/update/{uuid}', [CompanySignatureController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [CompanySignatureController::class, 'destroy']);
+   
+    });
+
+     // Routes related to Zone
+    Route::prefix('zone')->group(function () {
+    Route::get('/', [ZoneController::class, 'index']);    
+    Route::post('/store', [ZoneController::class, 'store']); 
+    Route::get('/{uuid}', [ZoneController::class, 'show']); 
+    Route::put('/update/{uuid}', [ZoneController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ZoneController::class, 'destroy']);
+    Route::put('/restore/{uuid}', [ZoneController::class, 'restore']); 
+    });
+
+    // Routes related to Claim
+    Route::prefix('claim')->group(function () {
+    Route::get('/', [ClaimController::class, 'index']);    
+    Route::post('/store', [ClaimController::class, 'store']); 
+    Route::get('/{uuid}', [ClaimController::class, 'show']); 
+    Route::put('/update/{uuid}', [ClaimController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ClaimController::class, 'destroy']);
+    
+    });
+
+    // Routes related to Customer Signature
+    Route::prefix('customer-signature2')->group(function () {
+    Route::get('/', [ClaimCustomerSignatureController::class, 'index']);    
+    Route::post('/store', [ClaimCustomerSignatureController::class, 'store']); 
+    Route::get('/{uuid}', [ClaimCustomerSignatureController::class, 'show']); 
+    Route::put('/update/{uuid}', [ClaimCustomerSignatureController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ClaimCustomerSignatureController::class, 'destroy']);
+    
+    });
+
+     // Routes related to Customer Signature
+    Route::prefix('customer-signature')->group(function () {
+    Route::get('/', [CustomerSignatureController::class, 'index']);    
+    Route::post('/store', [CustomerSignatureController::class, 'store']); 
+    Route::get('/{uuid}', [CustomerSignatureController::class, 'show']); 
+    Route::put('/update/{uuid}', [CustomerSignatureController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [CustomerSignatureController::class, 'destroy']);
+    
+    });
+
+
+    // Routes related to Claim Agreement Preview
+    Route::prefix('claim-agreement')->group(function () {
+    Route::get('/', [ClaimAgreementPreviewController::class, 'index']);    
+    Route::post('/store', [ClaimAgreementPreviewController::class, 'store']); 
+    Route::get('/{uuid}', [ClaimAgreementPreviewController::class, 'show']); 
+    Route::put('/update/{uuid}', [ClaimAgreementPreviewController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ClaimAgreementPreviewController::class, 'destroy']);
+    
+    });
+
+    // Routes related to Claim Agreement Preview
+    Route::prefix('claim-agreement-full')->group(function () {
+    Route::get('/', [ClaimAgreementFullController::class, 'index']);    
+    Route::post('/store', [ClaimAgreementFullController::class, 'store']); 
+    Route::get('/{uuid}', [ClaimAgreementFullController::class, 'show']); 
+    Route::put('/update/{uuid}', [ClaimAgreementFullController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ClaimAgreementFullController::class, 'destroy']);
+    
+    });
+
+    // Routes related to File Esx
+    Route::prefix('file-esx')->group(function () {
+    Route::get('/', [FileEsxController::class, 'index']);    
+    Route::post('/store', [FileEsxController::class, 'store']); 
+    Route::get('/{uuid}', [FileEsxController::class, 'show']); 
+    Route::post('/update/{uuid}', [FileEsxController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [FileEsxController::class, 'destroy']);
+    
+    });
+
+    // Routes related to Document Templates
+    Route::prefix('document-template')->group(function () {
+    Route::get('/', [DocumentTemplateController::class, 'index']);    
+    Route::post('/store', [DocumentTemplateController::class, 'store']); 
+    Route::get('/{uuid}', [DocumentTemplateController::class, 'show']); 
+    Route::put('/update/{uuid}', [DocumentTemplateController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [DocumentTemplateController::class, 'destroy']);
+    
+    });
+
+    // Routes related to Document Templates
+    Route::prefix('document-template-alliance')->group(function () {
+    Route::get('/', [DocumentTemplateAllianceController::class, 'index']);    
+    Route::post('/store', [DocumentTemplateAllianceController::class, 'store']); 
+    Route::get('/{uuid}', [DocumentTemplateAllianceController::class, 'show']); 
+    Route::put('/update/{uuid}', [DocumentTemplateAllianceController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [DocumentTemplateAllianceController::class, 'destroy']);
+    
+    });
+
+     // Routes related to Scope Sheet
+    Route::prefix('scope-sheet')->group(function () {
+    Route::get('/', [ScopeSheetController::class, 'index']);    
+    Route::post('/store', [ScopeSheetController::class, 'store']); 
+    Route::get('/{uuid}', [ScopeSheetController::class, 'show']); 
+    Route::put('/update/{uuid}', [ScopeSheetController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ScopeSheetController::class, 'destroy']);
+    
+    });
+
+    // Routes related to Scope Sheet Zone
+    Route::prefix('scope-sheet-zone')->group(function () {
+    Route::get('/', [ScopeSheetZoneController::class, 'index']);    
+    Route::post('/store', [ScopeSheetZoneController::class, 'store']); 
+    Route::get('/{uuid}', [ScopeSheetZoneController::class, 'show']); 
+    Route::put('/update/{uuid}', [ScopeSheetZoneController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ScopeSheetZoneController::class, 'destroy']);
+    
+    });
+
+    // Routes related to Scope Sheet Zone Photo
+    Route::prefix('scope-sheet-zone-photo')->group(function () {
+    Route::get('/', [ScopeSheetZonePhotoController::class, 'index']);    
+    Route::post('/store', [ScopeSheetZonePhotoController::class, 'store']); 
+    Route::get('/{uuid}', [ScopeSheetZonePhotoController::class, 'show']); 
+    Route::post('/update/{uuid}', [ScopeSheetZonePhotoController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ScopeSheetZonePhotoController::class, 'destroy']);
+    Route::put('/reorder-images', [ScopeSheetZonePhotoController::class, 'reorderImages']);
+    
+    });
+
+    // Routes related to Scope Sheet Zone Photo
+    Route::prefix('scope-sheet-presentation')->group(function () {
+    Route::get('/', [ScopeSheetPresentationController::class, 'index']);    
+    Route::post('/store', [ScopeSheetPresentationController::class, 'store']); 
+    Route::get('/{uuid}', [ScopeSheetPresentationController::class, 'show']); 
+    Route::post('/update/{uuid}', [ScopeSheetPresentationController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ScopeSheetPresentationController::class, 'destroy']);
+    Route::put('/reorder-images', [ScopeSheetPresentationController::class, 'reorderImages']);
+    
+    });
+
+     // Routes related to Scope Sheet Export
+    Route::prefix('scope-sheet-export')->group(function () {
+    Route::get('/', [ScopeSheetExportController::class, 'index']);    
+    Route::post('/store', [ScopeSheetExportController::class, 'store']); 
+    Route::get('/{uuid}', [ScopeSheetExportController::class, 'show']); 
+    Route::post('/update/{uuid}', [ScopeSheetExportController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ScopeSheetExportController::class, 'destroy']);
+   
+    
+    });
+
+
+    // Routes related to Service Request
+    Route::prefix('service-request')->group(function () {
+    Route::get('/', [ServiceRequestController::class, 'index']);    
+    Route::post('/store', [ServiceRequestController::class, 'store']); 
+    Route::get('/{uuid}', [ServiceRequestController::class, 'show']); 
+    Route::put('/update/{uuid}', [ServiceRequestController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ServiceRequestController::class, 'destroy']);
+   
+    
+    });
+
+
+     // Routes related to Sales person Signature 
+    Route::prefix('sales-person-signature')->group(function () {
+    Route::get('/', [SalespersonSignatureController::class, 'index']);    
+    Route::post('/store', [SalespersonSignatureController::class, 'store']); 
+    Route::get('/{uuid}', [SalespersonSignatureController::class, 'show']); 
+    Route::put('/update/{uuid}', [SalespersonSignatureController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [SalespersonSignatureController::class, 'destroy']);
+
+    });
+
+
 });
     
