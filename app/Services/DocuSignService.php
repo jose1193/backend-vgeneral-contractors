@@ -41,6 +41,7 @@ class DocuSignService
 
     public function validateDocument(array $validatedData): array
     {
+        return $this->transactionService->handleTransaction(function () use ($validatedData) {
         $userId = Auth::id();
         $token = $this->serviceData->getAccessToken($userId);
 
@@ -72,8 +73,10 @@ class DocuSignService
             'generated_by' => $userId
         ]);
 
-        return $response;
+            return $response;
+        }, 'validating document with DocuSign');
     }
+
 
     public function refreshAccessToken(string $refreshToken): string
     {
