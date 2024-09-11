@@ -68,6 +68,17 @@ class ClaimResource extends JsonResource
                     'updated_at' => $serviceRequest->pivot->updated_at,
                 ];
             }),
+
+            // Agregar los acuerdos de reclamo
+        'claim_agreements' => $this->claimAgreement->map(function ($agreement) {
+            return [
+                'uuid' => $agreement->uuid,
+                'claim_id' => (int) $agreement->claim_id,
+                'full_pdf_path' => asset($agreement->full_pdf_path),
+                'agreement_type' => $agreement->agreement_type,  // Aquí puedes hacer una conversión si es necesario
+                'generated_by' => $agreement->generatedBy ? $agreement->generatedBy->name . ' ' . $agreement->generatedBy->last_name : null,
+            ];
+        }),
         
         ];
     }

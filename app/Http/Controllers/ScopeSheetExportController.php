@@ -14,12 +14,12 @@ use App\Traits\HandlesApiErrors;
 
 class ScopeSheetExportController extends BaseController
 {
-     use HandlesApiErrors; 
+    use HandlesApiErrors; 
     protected $serviceData;
 
-   public function __construct(ScopeSheetExportService $serviceData)
+    public function __construct(ScopeSheetExportService $serviceData)
     {
-    $this->middleware('check.permission:Director Assistant')->only(['destroy']);
+    $this->middleware('check.permission:Lead')->only(['show','store']);
     $this->serviceData = $serviceData;
     }
 

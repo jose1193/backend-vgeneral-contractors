@@ -32,7 +32,7 @@ use App\Repositories\ScopeSheetZonePhotoRepository;
 use App\Repositories\ScopeSheetExportRepository;
 use App\Repositories\ServiceRequestRepository;
 use App\Repositories\SalespersonSignatureRepository;
-
+use App\Repositories\DocuSignRepository;
 
 
 use App\Interfaces\TypeDamageRepositoryInterface;
@@ -63,6 +63,8 @@ use App\Interfaces\ScopeSheetZonePhotoRepositoryInterface;
 use App\Interfaces\ScopeSheetExportRepositoryInterface;
 use App\Interfaces\ServiceRequestRepositoryInterface;
 use App\Interfaces\SalespersonSignatureRepositoryInterface;
+use App\Interfaces\DocuSignRepositoryInterface;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -101,7 +103,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ScopeSheetExportRepositoryInterface::class,ScopeSheetExportRepository::class);
         $this->app->bind(ServiceRequestRepositoryInterface::class,ServiceRequestRepository::class);
         $this->app->bind(SalespersonSignatureRepositoryInterface::class, SalespersonSignatureRepository::class);
-        
+        $this->app->bind(DocuSignRepositoryInterface::class, DocuSignRepository::class);
     
     }
 

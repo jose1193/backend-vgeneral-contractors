@@ -11,13 +11,19 @@ class DocusignClaim extends Model
      protected $fillable = [
         'uuid',
         'claim_id',
-        'envelope_id ',
-        'status ',
+        'envelope_id',
+        'generated_by',
+        
     ];
 
     public function claim()
     {
         return $this->belongsTo(Claim::class);
+    }
+
+    public function generatedBy()
+    {
+        return $this->belongsTo(User::class, 'generated_by');
     }
 
 }

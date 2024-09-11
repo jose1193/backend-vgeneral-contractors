@@ -64,6 +64,6 @@ class ClaimAgreementFullRepository implements ClaimAgreementFullRepositoryInterf
 
     public function getByTemplateType(string $templateType)
     {
-    return DocumentTemplate::where('template_type', 'Agreement')->firstOrFail();
+    return DocumentTemplate::where('template_type',$templateType)->firstOrFail();
     }
 }

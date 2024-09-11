@@ -46,6 +46,10 @@ use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\SalespersonSignatureController;
 
 
+use App\Http\Controllers\DocuSignController;
+
+
+
 //Route::get('/user', function (Request $request) {
     //return $request->user();
 //})->middleware('auth:sanctum');
@@ -275,17 +279,17 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
 
 
     // Routes related to Claim Agreement Preview
-    Route::prefix('claim-agreement')->group(function () {
-    Route::get('/', [ClaimAgreementPreviewController::class, 'index']);    
-    Route::post('/store', [ClaimAgreementPreviewController::class, 'store']); 
-    Route::get('/{uuid}', [ClaimAgreementPreviewController::class, 'show']); 
-    Route::put('/update/{uuid}', [ClaimAgreementPreviewController::class, 'update']); 
-    Route::delete('/delete/{uuid}', [ClaimAgreementPreviewController::class, 'destroy']);
+    //Route::prefix('claim-agreement')->group(function () {
+    //Route::get('/', [ClaimAgreementPreviewController::class, 'index']);    
+    //Route::post('/store', [ClaimAgreementPreviewController::class, 'store']); 
+    //Route::get('/{uuid}', [ClaimAgreementPreviewController::class, 'show']); 
+    //Route::put('/update/{uuid}', [ClaimAgreementPreviewController::class, 'update']); 
+    //Route::delete('/delete/{uuid}', [ClaimAgreementPreviewController::class, 'destroy']);
     
-    });
+    //});
 
     // Routes related to Claim Agreement Preview
-    Route::prefix('claim-agreement-full')->group(function () {
+    Route::prefix('claim-agreement')->group(function () {
     Route::get('/', [ClaimAgreementFullController::class, 'index']);    
     Route::post('/store', [ClaimAgreementFullController::class, 'store']); 
     Route::get('/{uuid}', [ClaimAgreementFullController::class, 'show']); 
@@ -399,7 +403,27 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     Route::delete('/delete/{uuid}', [SalespersonSignatureController::class, 'destroy']);
 
     });
+ // Routes related to Sales person Signature 
+    Route::prefix('docusign')->group(function () {
+    Route::get('/', [DocuSignController::class, 'index']);    
+    //Route::post('/store', [DocuSignController::class, 'store']); 
+    //Route::get('/{uuid}', [DocuSignController::class, 'show']); 
+    //Route::put('/update/{uuid}', [DocuSignController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [DocuSignController::class, 'destroy']);
+    Route::post('/connect', [DocuSignController::class, 'connectDocusign']);
+    Route::post('/callback', [DocuSignController::class, 'callbackDocusign']); 
+    Route::post('/sign', [DocuSignController::class, 'validateDocument']); 
+    Route::post('/check-document', [DocuSignController::class, 'checkDocumentStatus']);
+    Route::post('/refresh-token', [DocuSignController::class, 'refreshToken']);
+    Route::get('/all-documents', [DocuSignController::class, 'allDocuments']); 
+
+    });
 
 
 });
     
+
+//Route::get('/docusign/connect', [DocusignController::class, 'connectDocusign']);
+//Route::post('/docusign/callback', [DocusignController::class, 'callback']);
+//Route::post('/docusign/sign', [DocusignController::class, 'validateDocument']);
+//Route::post('/docusign/check-document', [DocusignController::class, 'checkDocumentStatus']);

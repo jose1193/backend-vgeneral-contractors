@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('claim_id')->constrained('claims')->onUpdate('cascade')->onDelete('cascade');
             $table->string('scope_sheet_description')->nullable();
-             $table->foreignId('generated_by')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreignId('generated_by')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
             $table->timestamps();
         });
     }

@@ -148,4 +148,15 @@ class User extends Authenticatable
     {
         return $this->hasMany(SalespersonSignature::class,'user_id_ref_by');
     }
+
+    public function docusign()
+    {
+        return $this->hasMany(DocusignClaim::class, 'generated_by');
+    }
+
+    public function connectedDocusign()
+    {
+        return $this->hasMany(DocusignToken::class, 'connected_by');
+    }
+
 }

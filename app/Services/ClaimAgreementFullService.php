@@ -28,6 +28,7 @@ class ClaimAgreementFullService
         $this->cacheService = $cacheService;
         $this->s3Service = $s3Service;
         $this->transactionService = $transactionService;
+       
     }
 
     private function getUserId()
@@ -71,7 +72,8 @@ class ClaimAgreementFullService
         $primaryCustomerData = $this->getPrimaryCustomerData($existingClaim);
         $fileName = $this->generateFileName($clientNamesFile, $agreementType);
 
-        $localTempPath = $this->downloadTemplateFromS3();
+        $localTempPath = $this->downloadTemplateFromS3($agreementType);
+        
         $processedWordPath = $this->processWordTemplate(
             $localTempPath,
             $existingClaim,
@@ -108,10 +110,12 @@ class ClaimAgreementFullService
     $prefix = $agreementType === 'Agreement Full' ? 'agreement-full-' : 'agreement-';
     return $prefix . str_replace(' ', '_', strtolower($clientNamesFile)) . '-' . now()->format('Y-m-d') . '.docx';
     }
-    private function downloadTemplateFromS3(): string
+    private function downloadTemplateFromS3($agreementType): string
     {
-        $documentTemplate = $this->serviceData->getByTemplateType('Agreement Full');
+        $documentTemplate = $this->serviceData->getByTemplateType($agreementType);
+        
         $s3Url = $documentTemplate->template_path;
+
         $localTempPath = storage_path('app/temp_template.docx');
         file_put_contents($localTempPath, file_get_contents($s3Url));
         return $localTempPath;
@@ -226,6 +230,7 @@ class ClaimAgreementFullService
         'insurance_company' => $existingClaim->insuranceCompanyAssignment->insuranceCompany->insurance_company_name,
         'policy_number' => $existingClaim->policy_number,
         'date_of_loss' => $existingClaim->date_of_loss,
+        'damage_description' => $existingClaim->damage_description,
         'claim_number' => $existingClaim->claim_number,
         'cell_phone' => $primaryCustomerData['cell_phone'],
         'home_phone' => $primaryCustomerData['home_phone'],

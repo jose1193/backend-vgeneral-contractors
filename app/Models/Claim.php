@@ -88,4 +88,13 @@ class Claim extends Model
         return $this->belongsToMany(ServiceRequest::class, 'claim_services', 'claim_id', 'service_request_id');
     }
 
+     public function claimAgreement()
+    {
+        return $this->hasMany(ClaimAgreementFull::class);
+    }
+
+    public function claimDocusign()
+    {
+        return $this->hasMany(DocusignClaim::class);
+    }
 }

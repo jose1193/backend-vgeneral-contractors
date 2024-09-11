@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('claim_id')->constrained('claims')->onUpdate('cascade')->onDelete('cascade');
             $table->string('envelope_id');
-            $table->string('status');
+            $table->foreignId('generated_by')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
             $table->timestamps();
         });
     }
