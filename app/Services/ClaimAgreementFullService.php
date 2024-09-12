@@ -97,13 +97,20 @@ class ClaimAgreementFullService
     {
     $primaryCustomerProperty = $existingClaim->property->customerProperties->first(fn($customerProperty) => $customerProperty->isOwner());
 
+    $fullName = $primaryCustomerProperty->customer->name . ' ' . $primaryCustomerProperty->customer->last_name;
+    $initials = $this->getInitials($fullName);
+
     return [
+        'full_name' => $fullName,
+        'initials_first' => $initials['first'],
+        'initials_last' => $initials['last'],
         'cell_phone' => $primaryCustomerProperty->customer->cell_phone ?? '',
         'home_phone' => $primaryCustomerProperty->customer->home_phone ?? '',
         'email' => $primaryCustomerProperty->customer->email ?? '',
         'occupation' => $primaryCustomerProperty->customer->occupation ?? '',
     ];
     }
+
 
     private function generateFileName(string $clientNamesFile, string $agreementType): string
     {
@@ -236,6 +243,8 @@ class ClaimAgreementFullService
         'home_phone' => $primaryCustomerData['home_phone'],
         'email' => $primaryCustomerData['email'],
         'occupation' => $primaryCustomerData['occupation'],
+        'primary_customer_initials' => $primaryCustomerData['initials_first'] . '/' . $primaryCustomerData['initials_last'],
+        'primary_customer_name' => $primaryCustomerData['full_name'],
         'signature_image' => $existingClaim->signature->signature_path,
         'signature_name' => $existingClaim->signature->user->name . ' ' . $existingClaim->signature->user->last_name,
         'company_name' => $existingClaim->signature->company_name,
@@ -244,7 +253,9 @@ class ClaimAgreementFullService
         'company_email' => $existingClaim->signature->email,
         'date' => now()->format('Y-m-d'),
     ];
-
+    // Agregar iniciales del CEO (asumiendo que están disponibles en $existingClaim->signature->user)
+    $ceoInitials = $this->getInitials($existingClaim->signature->user->name . ' ' . $existingClaim->signature->user->last_name);
+    $values['ceo_initials'] = $ceoInitials['first'] . '/' . $ceoInitials['last'];
     if ($customerSignatures) {
         foreach ($customerSignatures as $index => $signature) {
             $values["customer_signature_$index"] = $signature;
@@ -280,6 +291,21 @@ class ClaimAgreementFullService
         return $signatures;
     }
 
+    private function getInitials(string $name): array
+    {
+    $words = explode(' ', $name);
+    $initials = array_map(fn($word) => strtoupper(substr($word, 0, 1)), $words);
+    
+    // Asegurarse de que siempre haya al menos dos iniciales
+    while (count($initials) < 2) {
+        $initials[] = '';
+    }
+    
+    return [
+        'first' => $initials[0],
+        'last' => $initials[count($initials) - 1]
+    ];
+    }
 
     private function getClientNamesArray($existingClaim): array
     {
