@@ -17,7 +17,9 @@ class ClaimAgreementFullService
     protected $transactionService;
     protected $cacheTime = 720;
     protected $cacheKeyList = 'claim_agreement_total_list_';
+    const MAX_SIGNATURES = 5;
 
+    
     public function __construct(
         ClaimAgreementFullRepositoryInterface $serviceData,
         CacheService $cacheService,
@@ -138,6 +140,17 @@ class ClaimAgreementFullService
     $templateProcessor = new TemplateProcessor($localTempPath);
     $values = $this->prepareTemplateValues($existingClaim, $clientNamesFile, $primaryCustomerData, $agreementType);
 
+    $this->setTemplateValues($templateProcessor, $values);
+    $this->ensureAllCustomerSignaturesReplaced($templateProcessor);
+
+    $processedWordPath = storage_path('app/temp_processed.docx');
+    $templateProcessor->saveAs($processedWordPath);
+
+    return $processedWordPath;
+    }
+
+    private function setTemplateValues(TemplateProcessor $templateProcessor, array $values): void
+    {
     foreach ($values as $key => $value) {
         if ($key === 'signature_image') {
             $this->processSignatureImage($templateProcessor, $value);
@@ -149,21 +162,17 @@ class ClaimAgreementFullService
             $templateProcessor->setValue($key, $value);
         }
     }
+    }
 
-    // Asegurarse de que todas las etiquetas de firma de cliente se reemplacen
-    for ($i = 0; $i < 10; $i++) {  // Asumimos un máximo de 10 firmas de clientes
+    private function ensureAllCustomerSignaturesReplaced(TemplateProcessor $templateProcessor): void
+    {
+    for ($i = 0; $i < self::MAX_SIGNATURES; $i++) {
         if (!isset($values["customer_signature_$i"])) {
             $templateProcessor->setValue("customer_signature_$i", '');
             $templateProcessor->setValue("customer_name_$i", '');
         }
     }
-
-    $processedWordPath = storage_path('app/temp_processed.docx');
-    $templateProcessor->saveAs($processedWordPath);
-
-    return $processedWordPath;
     }
-
     private function processSignatureImage(TemplateProcessor $templateProcessor, string $value): void
     {
         $signatureImagePath = $this->downloadImageFromUrl($value);
