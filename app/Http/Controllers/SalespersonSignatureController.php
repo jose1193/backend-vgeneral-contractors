@@ -39,7 +39,7 @@ class SalespersonSignatureController extends BaseController
     {
         $salesperson_signature = $this->serviceData->storeData($request->validated());
 
-        return ApiResponseClass::sendSimpleResponse(new SalespersonSignatureResource($salesperson_signature), 201);
+        return ApiResponseClass::sendSimpleResponse(new SalespersonSignatureResource($salesperson_signature), 200);
     }
 
     /**

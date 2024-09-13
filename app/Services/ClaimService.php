@@ -96,6 +96,17 @@ class ClaimService
                 throw new Exception('Claim not created');
             }
             
+           // Lógica para guardar AffidavitForm si los datos están presentes
+            if (isset($details['affidavit']) && is_array($details['affidavit'])) {
+            // Generar un UUID para el AffidavitForm
+            $affidavitData = $details['affidavit'];
+            $affidavitData['uuid'] = Uuid::uuid4()->toString();
+    
+            // Guardar el AffidavitForm asociado al claim
+            $this->claimRepositoryInterface->storeAffidavitForm($affidavitData, $claim->id);
+            }
+
+
             // Manejar las asignaciones (Alliances, Technicians, etc.)
             $this->handleAssignments($claim, array_merge($details, [
                 'alliance_company_id' => $alliancesIds
@@ -127,7 +138,7 @@ class ClaimService
 
 
    public function updateData(array $updateDetails, string $uuid, array $alliancesIds, array $technicalIds, array $serviceRequestIds)
-{
+    {
     DB::beginTransaction();
 
     try {
@@ -137,6 +148,11 @@ class ClaimService
         $updateDetails['user_id_ref_by'] = $updateDetails['user_id_ref_by'] ?? $existingClaim->user_id_ref_by;
         // Actualizar el claim en la base de datos
         $updatedClaim = $this->claimRepositoryInterface->update($updateDetails, $uuid);
+
+        // Actualizar los datos del affidavit si están presentes
+        if (isset($updateDetails['affidavit'])) {
+            $this->claimRepositoryInterface->updateAffidavitForm($updateDetails['affidavit'], $existingClaim->id);
+        }
 
         // Manejar las asignaciones
         $this->handleAssignments($updatedClaim, array_merge($updateDetails, [
@@ -159,7 +175,7 @@ class ClaimService
         Log::error('Error occurred while updating claim: ' . $ex->getMessage(), ['exception' => $ex]);
         throw new Exception('Error occurred while updating claim: ' . $ex->getMessage());
     }
-}
+    }
 
 
 

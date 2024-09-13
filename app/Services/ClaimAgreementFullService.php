@@ -247,7 +247,10 @@ class ClaimAgreementFullService
         'policy_number' => $existingClaim->policy_number,
         'date_of_loss' => $existingClaim->date_of_loss,
         'damage_description' => $existingClaim->damage_description,
-        'claim_number' => $existingClaim->claim_number,
+        'scope_of_work' => $existingClaim->scope_of_work ?? '',
+        'customer_reviewed' => $existingClaim->customer_reviewed ?? '',
+        'description_of_loss' => $existingClaim->description_of_loss ?? '',
+        'claim_number' => $existingClaim->claim_number ?? '',
         'cell_phone' => $primaryCustomerData['cell_phone'],
         'home_phone' => $primaryCustomerData['home_phone'],
         'email' => $primaryCustomerData['email'],
@@ -261,10 +264,33 @@ class ClaimAgreementFullService
         'company_address' => $existingClaim->signature->address,
         'company_email' => $existingClaim->signature->email,
         'date' => now()->format('Y-m-d'),
+
+        // Valores del affidavit
+        'affidavit_mortgage_company_name' => $existingClaim->affidavit->mortgage_company_name ?? '',
+        'affidavit_mortgage_company_phone' => $existingClaim->affidavit->mortgage_company_phone ?? '',
+        'affidavit_mortgage_loan_number' => $existingClaim->affidavit->mortgage_loan_number ?? '',
+        'affidavit_description' => $existingClaim->affidavit->description ?? '',
+        'affidavit_amount_paid' => $existingClaim->affidavit->amount_paid ?? '',
+        'affidavit_day_of_loss_ago' => $existingClaim->affidavit->day_of_loss_ago ?? '',
+        'never_had_prior_loss' => $existingClaim->affidavit->never_had_prior_loss ? '☑' : '☐',
+        'has_never_had_prior_loss' => $existingClaim->affidavit->has_never_had_prior_loss ? '☑' : '☐',
     ];
+ 
+        // Obtener los servicios requeridos
+        $requestedServices = $existingClaim->serviceRequests->map(function ($serviceRequest) {
+        return [
+            'requested_service' => $serviceRequest->requested_service ?? '',
+        ];
+    })->toArray();
+
+        // Agregar los servicios requeridos como una cadena separada por comas
+        $values['requested_services'] = implode(', ', array_column($requestedServices, 'requested_service'));
+
+
     // Agregar iniciales del CEO (asumiendo que están disponibles en $existingClaim->signature->user)
     $ceoInitials = $this->getInitials($existingClaim->signature->user->name . ' ' . $existingClaim->signature->user->last_name);
     $values['ceo_initials'] = $ceoInitials['first'] . '/' . $ceoInitials['last'];
+    
     if ($customerSignatures) {
         foreach ($customerSignatures as $index => $signature) {
             $values["customer_signature_$index"] = $signature;
@@ -275,6 +301,7 @@ class ClaimAgreementFullService
         return $values;
     }
 
+        
     private function getCustomerSignatures($existingClaim, string $agreementType): ?array
     {
     if ($agreementType !== 'Agreement Full') {

@@ -68,7 +68,7 @@ class ClaimResource extends JsonResource
                     'updated_at' => $serviceRequest->pivot->updated_at,
                 ];
             }),
-
+            'affidavit' => $this->affidavit,
             // Agregar los acuerdos de reclamo
         'claim_agreements' => $this->claimAgreement->map(function ($agreement) {
             return [

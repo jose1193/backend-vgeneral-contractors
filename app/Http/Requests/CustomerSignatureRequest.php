@@ -26,16 +26,22 @@ class CustomerSignatureRequest extends FormRequest
     public function rules(): array
     {
     $rules = [
-        'customer_id' => ['required', 'integer'],
+        // Definición de reglas básicas
         'signature_data' => ['required'],
     ];
 
-    if ($this->isMethod('POST')) {
-        $rules['customer_id'][] = Rule::unique('customer_signatures');
+    // Verificar la ruta y el método
+    if ($this->is('api/customer-signature/update')) {
+        // Si la ruta es de actualización, `customer_id` no es obligatorio
+        $rules['customer_id'] = ['nullable', 'integer'];
+    } else if ($this->isMethod('POST')) {
+        // Si es una solicitud POST (creación), `customer_id` debe ser obligatorio
+        $rules['customer_id'] = ['required', 'integer', Rule::unique('customer_signatures')];
     }
 
     return $rules;
     }
+
 
 
     public function failedValidation(Validator $validator)

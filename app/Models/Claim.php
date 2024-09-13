@@ -12,7 +12,8 @@ class Claim extends Model
     protected $fillable = [
         'uuid', 'property_id', 'signature_path_id', 'claim_internal_id',
         'policy_number', 'date_of_loss', 'user_id_ref_by', 'number_of_floors',
-        'claim_date', 'type_damage_id', 'claim_status', 'damage_description','claim_number','work_date'
+        'claim_date', 'type_damage_id', 'claim_status', 'damage_description','claim_number','work_date','scope_of_work',
+        'customer_reviewed','description_of_loss'
     ];
 
     
@@ -96,5 +97,10 @@ class Claim extends Model
     public function claimDocusign()
     {
         return $this->hasMany(DocusignClaim::class);
+    }
+
+    public function affidavit()
+    {
+        return $this->hasOne(AffidavitForm::class, 'claim_id');
     }
 }

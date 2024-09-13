@@ -37,9 +37,12 @@ class ClaimRequest extends FormRequest
         // Campos opcionales
         'claim_internal_id' => 'nullable|string|max:255',
         'date_of_loss' => 'nullable|string|max:255',
+        'description_of_loss' => 'nullable',
         'claim_date' => 'nullable|string|max:255',
         'claim_status' => 'nullable|string|max:255',
-        'damage_description' => 'nullable|string',
+        'damage_description' => 'nullable|string|max:255',
+        'scope_of_work' => 'nullable',
+        'customer_reviewed' => 'nullable|boolean',
         'claim_number' => 'nullable|string|max:255',
         'number_of_floors' => 'nullable|integer|max:10',
 
@@ -96,7 +99,28 @@ class ClaimRequest extends FormRequest
                 }
             },
         ],
-    ];
+
+        // Campos adicionales opcionales
+        'day_of_loss_ago' => 'nullable|string|max:255', 
+        'never_had_prior_loss' => 'nullable|boolean', 
+        'has_never_had_prior_loss' => 'nullable|boolean', 
+        'amount_paid' => 'nullable|numeric|max:99999999.99', 
+        'description' => 'nullable|string', 
+        'mortgage_company_name' => 'nullable|string|max:255',
+        'mortgage_company_phone' => 'nullable|string|max:255', 
+        'mortgage_loan_number' => 'nullable|string|max:255', 
+
+        // Validación para el campo affidavit
+        'affidavit' => 'nullable|array',
+        'affidavit.mortgage_company_name' => 'nullable|string|max:255',
+        'affidavit.mortgage_company_phone' => 'nullable|string|max:255',
+        'affidavit.mortgage_loan_number' => 'nullable|string|max:255',
+        'affidavit.description' => 'nullable|string',
+        'affidavit.amount_paid' => 'nullable|numeric|max:99999999.99',
+        'affidavit.day_of_loss_ago' => 'nullable|string|max:255',
+        'affidavit.never_had_prior_loss' => 'nullable|boolean',
+        'affidavit.has_never_had_prior_loss' => 'nullable|boolean',
+        ];
 }
 
 
