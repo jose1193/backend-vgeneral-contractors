@@ -48,7 +48,7 @@ class ClaimRequest extends FormRequest
 
         // Alliance company (array of IDs)
         'alliance_company_id' => $isStoreRoute 
-            ? ['required', 'array', 'min:1', 'max:2'] 
+            ? ['nullable', 'array', 'min:1', 'max:2'] 
             : ['nullable', 'array', 'max:2'],
         'alliance_company_id.*' => 'integer|exists:alliance_companies,id',
          // Validación para el array de IDs de Service Request

@@ -8,6 +8,7 @@ use App\Classes\ApiResponseClass;
 
 use App\Http\Requests\ClaimRequest;
 use App\Http\Resources\ClaimResource;
+use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Response;
@@ -22,7 +23,7 @@ class ClaimController extends BaseController
     public function __construct(ClaimService $claimService)
     {
         // Middleware para permisos
-        $this->middleware('check.permission:Director Assistant')->only(['update', 'destroy']);
+        $this->middleware('check.permission:Lead')->only(['update']);
         
         $this->claimService = $claimService;
     }
@@ -45,6 +46,7 @@ class ClaimController extends BaseController
             return response()->json(['message' => 'Error fetching claims' . $e->getMessage()], 500);
         }
     }
+
 
     /**
      * Store a newly created resource in storage.

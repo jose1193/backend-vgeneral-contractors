@@ -83,4 +83,13 @@ class UsersRepository implements UsersRepositoryInterface
 
         return $user;
     }
+
+     public function getByRole(string $role)
+    {
+        // Utiliza el método de Spatie para obtener usuarios por rol
+         return User::role($role, 'api')->get();
+    }
+
+
+
 }

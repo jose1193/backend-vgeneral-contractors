@@ -17,7 +17,7 @@ use App\Mail\PublicAdjusterAssignmentNotification;
 use App\Mail\TechnicalUserAssignmentNotification;
 use App\Jobs\SendPublicAdjusterAssignmentNotification;
 use App\Jobs\SendTechnicalUserAssignmentNotification;
-use App\Models\User;
+
 use App\Helpers\ImageHelper;
 
 class ClaimService
@@ -62,7 +62,7 @@ class ClaimService
         }
     }
 
-    
+
     public function storeData(array $details, array $alliancesIds, array $technicalIds, array $serviceRequestIds)
     {
         DB::beginTransaction();

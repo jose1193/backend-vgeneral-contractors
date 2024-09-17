@@ -10,4 +10,5 @@ interface UsersRepositoryInterface
     public function update(array $data, $uuid);
     public function delete($uuid);
     public function restore($uuid);
+    public function getByRole(string $role);
 }

@@ -31,7 +31,7 @@ class PublicAdjusterController extends BaseController
     public function __construct(PublicAdjusterService $publicAdjusterService)
     {
         // Middleware para permisos
-        $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'show', 'update', 'destroy']);
+        $this->middleware('check.permission:Super Admin')->only([ 'store', 'show', 'update', 'destroy']);
 
         $this->publicAdjusterService = $publicAdjusterService;
     }

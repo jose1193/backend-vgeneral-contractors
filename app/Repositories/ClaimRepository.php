@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Claim;
+
 use App\Models\AffidavitForm;
 
 use App\Interfaces\ClaimRepositoryInterface;
@@ -65,5 +66,6 @@ class ClaimRepository implements ClaimRepositoryInterface
     $affidavit = AffidavitForm::where('claim_id', $claimId)->firstOrFail();
     $affidavit->update($affidavitDetails);
     }
+
 
 }

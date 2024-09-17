@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Ramsey\Uuid\Uuid;
 use Illuminate\Support\Facades\Cache;
-
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Mail;
 use App\Mail\WelcomeMailWithCredentials;
@@ -66,6 +66,42 @@ class UserService
                 'exception' => $e
             ]);
             throw $e; // Lanza la excepción para manejarla en el controlador si es necesario
+        }
+    }
+
+    public function getUsersByRole(string $role)
+    {
+        try {
+        $this->userId = Auth::id();
+        $this->cacheKey = 'users_' . $this->userId . '_role_' . $role . '_list';
+
+        // Refrescar la caché si es necesario
+        $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () use ($role) {
+            return $this->usersRepositoryInterface->getByRole($role);
+        });
+
+        // Obtener los datos actualizados desde la caché
+        $data = Cache::get($this->cacheKey);
+
+        // Verificar si la colección está vacía
+        if ($data === null || $data->isEmpty()) {
+            Log::warning('No users found or cache is empty for role: ' . $role);
+            return collect(); // Devolver una colección vacía en lugar de null
+        }
+
+        return $data;
+
+        } catch (QueryException $e) {
+        Log::error('Database error occurred while fetching users with role ' . $role . ': ' . $e->getMessage(), [
+            'exception' => $e
+        ]);
+        throw $e;
+
+        } catch (\Exception $e) {
+        Log::error('Error occurred while fetching users with role ' . $role . ': ' . $e->getMessage(), [
+            'exception' => $e
+        ]);
+        throw $e;
         }
     }
 

@@ -44,9 +44,60 @@ class UsersController extends BaseController
         $this->userService = $userService;
     }
 
-    
+      public function getPublicAdjusters(): JsonResponse
+    {
+            try {
+            // Obtener usuarios con el rol "Public Adjuster"
+            $users = $this->userService->getUsersByRole('Public Adjuster');
 
-    
+            if ($users->isEmpty()) {
+            return response()->json(['message' => 'No Public Adjusters found'], 404);
+            }
+
+            // Retorna la lista de usuarios en formato JSON
+            return ApiResponseClass::sendResponse(UserResource::collection($users), 200);
+
+            } catch (QueryException $e) {
+            Log::error('Database error occurred while fetching Public Adjusters: ' . $e->getMessage(), [
+            'exception' => $e
+            ]);
+            return response()->json(['message' => 'Database error occurred while fetching Public Adjusters'], 500);
+
+            } catch (\Exception $e) {
+            Log::error('Error occurred while fetching Public Adjusters: ' . $e->getMessage(), [
+            'exception' => $e
+            ]);
+            return response()->json(['message' => 'Error occurred while fetching Public Adjusters'], 500);
+            }   
+        }
+
+        public function getTechnicalServices(): JsonResponse
+    {
+        try {
+        // Obtener usuarios con el rol "Technical Services"
+        $users = $this->userService->getUsersByRole('Technical Services');
+
+        if ($users->isEmpty()) {
+            return response()->json(['message' => 'No Technical Services found'], 404);
+        }
+
+        // Retorna la lista de usuarios en formato JSON
+        return ApiResponseClass::sendResponse(UserResource::collection($users), 200);
+
+        } catch (QueryException $e) {
+        Log::error('Database error occurred while fetching Technical Services: ' . $e->getMessage(), [
+            'exception' => $e
+        ]);
+        return response()->json(['message' => 'Database error occurred while fetching Technical Services'], 500);
+
+        } catch (\Exception $e) {
+        Log::error('Error occurred while fetching Technical Services: ' . $e->getMessage(), [
+            'exception' => $e
+        ]);
+        return response()->json(['message' => 'Error occurred while fetching Technical Services'], 500);
+        }
+    }
+
     // SHOW LIST OF USERS
 
        public function index(): JsonResponse
@@ -76,16 +127,15 @@ class UsersController extends BaseController
     }
 
 
-
     // SYNC ROLES
     public function create()
-{
+    {
     $cacheKey = 'roles_list';
     $roles = $this->getCachedData($cacheKey, 360, function () {
         return Role::orderBy('id', 'DESC')->get();
     });
     return response()->json(['roles' => $roles], 200);
-}
+    }
 
 
 
