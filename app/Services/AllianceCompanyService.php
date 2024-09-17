@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Repositories\AllianceCompanyRepositoryInterface;
+use App\Interfaces\AllianceCompanyRepositoryInterface;
 use App\Http\Controllers\BaseController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;

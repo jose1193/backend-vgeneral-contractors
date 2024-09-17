@@ -44,7 +44,7 @@ use App\Http\Controllers\ScopeSheetZonePhotoController;
 use App\Http\Controllers\ScopeSheetExportController;
 use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\SalespersonSignatureController;
-
+use App\Http\Controllers\AllianceCompanyController;
 
 use App\Http\Controllers\DocuSignController;
 
@@ -146,6 +146,16 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     
     }); 
 
+      // Routes related to Alliance Company
+    Route::prefix('alliance-company')->group(function () {
+    Route::get('/', [AllianceCompanyController::class, 'index']);    
+    Route::post('/store', [AllianceCompanyController::class, 'store']); 
+    Route::get('/{uuid}', [AllianceCompanyController::class, 'show']); 
+    Route::put('/update/{uuid}', [AllianceCompanyController::class, 'update']); 
+    Route::delete('delete/{uuid}', [AllianceCompanyController::class, 'destroy']);
+    
+    }); 
+
     // Routes related to Insurance Company
     Route::prefix('insurance-company')->group(function () {
     Route::get('/', [InsuranceCompanyController::class, 'index']);    
@@ -178,7 +188,7 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     });
 
     // Routes related to CustomerProperty
-    Route::prefix('property')->group(function () {
+    Route::prefix('properties')->group(function () {
     Route::get('/', [PropertyController::class, 'index']);    
     Route::post('/store', [PropertyController::class, 'store']); 
     Route::get('/{uuid}', [PropertyController::class, 'show']); 

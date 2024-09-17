@@ -34,7 +34,8 @@ class ClaimResource extends JsonResource
 
             // Relaciones opcionales
             'user_ref_by' =>  $this->referredByUser->name . ' ' . $this->referredByUser->last_name,
-            'property' => new PropertyResource($this->property), 
+            'property' => $this->property->property_address. ' ' .$this->property->property_state. ' ' .$this->property->property_city. ' ' .$this->property->property_postal_code. ' ' .$this->property->property_country,
+            'customers' => $this->transformCustomers($this->property->customers),
             'signature_path' => asset($this->signature->signature_path),  
             'type_damage' => $this->typeDamage->type_damage_name,
 
@@ -81,5 +82,18 @@ class ClaimResource extends JsonResource
         }),
         
         ];
+        
+    }
+    private function transformCustomers($customers)
+    {
+        return $customers->map(function ($customer) {
+            return [
+                'id' => (int) $customer->id,
+                'name' => $customer->name,
+                'last_name' => $customer->last_name,
+                'email' => $customer->email,
+                // Otros campos de Customer si es necesario
+            ];
+        })->toArray();
     }
 }

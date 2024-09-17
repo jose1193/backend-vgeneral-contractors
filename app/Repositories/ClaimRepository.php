@@ -14,12 +14,12 @@ class ClaimRepository implements ClaimRepositoryInterface
      */
     public function index()
     {
-        return Claim::orderBy('id', 'DESC')->get();
+        return Claim::with('property.customers')->orderBy('id', 'DESC')->get();
     }
 
     public function getByUuid(string $uuid)
     {
-        return Claim::where('uuid', $uuid)->firstOrFail();
+        return Claim::with('property.customers')->where('uuid', $uuid)->firstOrFail();
     }
 
     public function store(array $data)
