@@ -44,12 +44,12 @@ class ClaimRepository implements ClaimRepositoryInterface
 
     public function getClaimsByUser($user)
     {
-        if ($user->hasPermissionTo('Director Assistant', 'api')) {
-            // Si el usuario tiene el permiso de "Director Assistant", obtiene todos los claims
+        if ($user->hasPermissionTo('Lead', 'api')) {
+            // Si el usuario tiene el permiso de "Lead", obtiene todos los claims
             return Claim::orderBy('id', 'DESC')->get();
         } else {
             // De lo contrario, obtiene solo los claims asociados a su id
-            return Claim::where('user_id_ref_by', $user->id)
+            return Claim::withTrashed()->where('user_id_ref_by', $user->id)
                         ->orderBy('id', 'DESC')
                         ->get();
         }
@@ -67,5 +67,18 @@ class ClaimRepository implements ClaimRepositoryInterface
     $affidavit->update($affidavitDetails);
     }
 
+    public function restore($uuid)
+        {
+        
+        
+        $claim = Claim::withTrashed()->where('uuid', $uuid)->firstOrFail();
+        if (!$claim->trashed()) {
+            throw new \Exception('Claim already restored');
+        }
+
+        $claim->restore();
+
+        return $claim;
+        }
 
 }

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Ramsey\Uuid\Uuid;
 use Exception;
 use Illuminate\Database\QueryException;
-
+use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\PublicAdjusterAssignmentNotification;
 use App\Mail\TechnicalUserAssignmentNotification;
@@ -332,5 +332,20 @@ private function handleAllianceCompanyAssignment($claim, array $details)
         }
     }
 
+    public function restoreData(string $uuid)
+    {
+        try {
+        $data = $this->claimRepositoryInterface->restore($uuid);
+        
+         // Invalidar el caché del usuario
+        $this->baseController->invalidateCache('claim_' . $uuid);
 
+           // Actualizar la caché de la lista de usuarios
+            $this->updateDataCache();
+        return $data;
+
+        } catch (\Exception $ex) {
+        throw new \Exception('Error occurred while retrieving claim: ' . $ex->getMessage());
+        }
+    }
 }

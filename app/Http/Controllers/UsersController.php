@@ -44,11 +44,11 @@ class UsersController extends BaseController
         $this->userService = $userService;
     }
 
-      public function getPublicAdjusters(): JsonResponse
+      public function getUsersRoles(string $role): JsonResponse
     {
             try {
-            // Obtener usuarios con el rol "Public Adjuster"
-            $users = $this->userService->getUsersByRole('Public Adjuster');
+           
+            $users = $this->userService->getUsersByRole($role);
 
             if ($users->isEmpty()) {
             return response()->json(['message' => 'No Public Adjusters found'], 404);

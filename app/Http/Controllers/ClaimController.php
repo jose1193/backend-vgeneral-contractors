@@ -133,6 +133,24 @@ class ClaimController extends BaseController
         }
     }
 
+    // CLAIM RESTORE
+
+ public function restore($uuid)
+{
+    try {
+        // Utilizar el servicio para obtener el usuario
+        $claim = $this->claimService->restoreData($uuid);
+
+            return ApiResponseClass::sendSimpleResponse(new ClaimResource($claim), 200);
+
+    } catch (\Exception $e) {
+        // Registrar el mensaje de la excepción en el log
+        Log::error('Error occurred while restoring claim: ' . $e->getMessage());
+
+        // Manejar cualquier excepción y devolver una respuesta de error
+        return response()->json(['message' => 'Error occurred while restoring claim', 'error' => $e->getMessage()], 500);
+    }
+}
 
 
 }

@@ -12,6 +12,7 @@ interface ClaimRepositoryInterface
     public function getClaimsByUser($userId);
     public function storeAffidavitForm(array $data, int $claimId);
     public function updateAffidavitForm(array $data, int $claimId);
+    public function restore(string $uuid);
    
    
 }

@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Database\Eloquent\SoftDeletes;
 class Claim extends Model
 {
     use HasFactory;
-     
+    use SoftDeletes;
+
+    
     protected $fillable = [
         'uuid', 'property_id', 'signature_path_id', 'claim_internal_id',
         'policy_number', 'date_of_loss', 'user_id_ref_by', 'number_of_floors',

@@ -118,8 +118,7 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     Route::post('/update-images/{uuid}/', [UsersController::class, 'updateImage']); 
     Route::delete('delete/{uuid}', [UsersController::class, 'destroy']);
     Route::put('restore/{uuid}', [UsersController::class, 'restore']);  
-    Route::get('/public-adjusters/list', [UsersController::class, 'getPublicAdjusters']);
-    Route::get('/technical-services/list', [UsersController::class, 'getTechnicalServices']);
+    Route::get('/users-roles/list/{role}', [UsersController::class, 'getUsersRoles']);
     }); 
     
 
@@ -267,6 +266,7 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     Route::get('/{uuid}', [ClaimController::class, 'show']); 
     Route::put('/update/{uuid}', [ClaimController::class, 'update']); 
     Route::delete('/delete/{uuid}', [ClaimController::class, 'destroy']);
+    Route::put('restore/{uuid}', [ClaimController::class, 'restore']);  
     });
 
     // Routes related to Customer Signature

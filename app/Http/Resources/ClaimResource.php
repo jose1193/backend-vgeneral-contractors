@@ -22,8 +22,10 @@ class ClaimResource extends JsonResource
             'type_damage_id' => $this->type_damage_id,
             'user_id_ref_by' => $this->referredByUser->name,
             'claim_internal_id' => $this->claim_internal_id,
+            'claim_number' => $this->claim_number,
             'policy_number' => $this->policy_number,
             'date_of_loss' => $this->date_of_loss,
+            'description_of_loss' => $this->description_of_loss,
             'claim_date' => $this->claim_date,
             'claim_status' => $this->claim_status,
             'damage_description' => $this->damage_description,
@@ -61,7 +63,7 @@ class ClaimResource extends JsonResource
             'alliance_companies' => new AllianceCompanyResource($this->allianceCompanies), 
             'requested_services' => $this->serviceRequests->map(function ($serviceRequest) {
                 return [
-                    'id' => $serviceRequest->id,
+                    'id' => (int) $serviceRequest->id,
                     'uuid' => $serviceRequest->uuid,
                     'requested_service' => $serviceRequest->requested_service,
                     // Añade aquí cualquier otro campo de ServiceRequest que quieras incluir
@@ -73,6 +75,7 @@ class ClaimResource extends JsonResource
             // Agregar los acuerdos de reclamo
         'claim_agreements' => $this->claimAgreement->map(function ($agreement) {
             return [
+                'id' => (int) $agreement->id,
                 'uuid' => $agreement->uuid,
                 'claim_id' => (int) $agreement->claim_id,
                 'full_pdf_path' => asset($agreement->full_pdf_path),
@@ -92,6 +95,9 @@ class ClaimResource extends JsonResource
                 'name' => $customer->name,
                 'last_name' => $customer->last_name,
                 'email' => $customer->email,
+                'cell_phone' => $customer->cell_phone,
+                'home_phone' => $customer->home_phone,
+                'occupation' => $customer->occupation,
                 // Otros campos de Customer si es necesario
             ];
         })->toArray();
