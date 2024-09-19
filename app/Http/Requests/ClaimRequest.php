@@ -46,11 +46,14 @@ class ClaimRequest extends FormRequest
         'claim_number' => 'nullable|string|max:255',
         'number_of_floors' => 'nullable|integer|max:10',
 
+        // Alliance company (ID)
+        'alliance_company_id' => 'nullable|integer',
         // Alliance company (array of IDs)
-        'alliance_company_id' => $isStoreRoute 
-            ? ['nullable', 'array', 'min:1', 'max:2'] 
-            : ['nullable', 'array', 'max:2'],
-        'alliance_company_id.*' => 'integer|exists:alliance_companies,id',
+        //'alliance_company_id' => $isStoreRoute 
+            //? ['nullable', 'array', 'min:1', 'max:2'] 
+            //: ['nullable', 'array', 'max:2'],
+        //'alliance_company_id.*' => 'integer|exists:alliance_companies,id',
+
          // Validación para el array de IDs de Service Request
         'service_request_id' => $isStoreRoute 
         ? ['required', 'array', 'min:1', 'max:10'] 

@@ -57,11 +57,11 @@ class ClaimController extends BaseController
 
     try {
         // Extraer el array de IDs de alianzas
-        $alliancesIds = $request->get('alliance_company_id', []);
+        //$alliancesIds = $request->get('alliance_company_id', []);
         $technicalIds = $request->get('technical_user_id', []);
         $serviceRequestIds = $request->get('service_request_id', []);
         // Pasar ambos parámetros al método storeData
-        $claim = $this->claimService->storeData($request->validated(), $alliancesIds, $technicalIds,$serviceRequestIds);
+        $claim = $this->claimService->storeData($request->validated(), $technicalIds,$serviceRequestIds);
 
         DB::commit();
 

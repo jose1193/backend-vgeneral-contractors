@@ -63,7 +63,7 @@ class ClaimService
     }
 
 
-    public function storeData(array $details, array $alliancesIds, array $technicalIds, array $serviceRequestIds)
+    public function storeData(array $details, array $technicalIds, array $serviceRequestIds)
     {
         DB::beginTransaction();
         
@@ -108,9 +108,12 @@ class ClaimService
 
 
             // Manejar las asignaciones (Alliances, Technicians, etc.)
-            $this->handleAssignments($claim, array_merge($details, [
-                'alliance_company_id' => $alliancesIds
-            ]));
+            //$this->handleAssignments($claim, array_merge($details, [
+                //'alliance_company_id' => $alliancesIds
+            //]));
+            $this->handleAssignments($claim, [
+            'alliance_company_id' => $details['alliance_company_id'],
+        ]);
                // Asociar los service requests con el claim
             
               $claim->serviceRequests()->attach($serviceRequestIds, [
@@ -305,18 +308,34 @@ private function handleTechnicalUserAssignment($claim, array $details)
 }
 
 
-private function handleAllianceCompanyAssignment($claim, array $details)
-{
-    $allianceCompanyIds = $details['alliance_company_id'] ?? [];
+    //private function handleAllianceCompanyAssignment($claim, array $details)
+    //{
+        //$allianceCompanyIds = $details['alliance_company_id'] ?? [];
 
-    // Eliminar asignaciones anteriores
-    $claim->allianceCompanies()->detach();
+        // Eliminar asignaciones anteriores
+        //$claim->allianceCompanies()->detach();
 
-    // Crear nuevas asignaciones
-    foreach ($allianceCompanyIds as $companyId) {
-        $claim->allianceCompanies()->attach($companyId, ['assignment_date' => now()]);
+        // Crear nuevas asignaciones
+        //foreach ($allianceCompanyIds as $companyId) {
+        //$claim->allianceCompanies()->attach($companyId, ['assignment_date' => now()]);
+        //}
+    //}
+
+    private function handleAllianceCompanyAssignment($claim, array $details)
+    {
+        // Asegurarse de que alliance_company_id sea un arreglo
+        $allianceCompanyIds = is_array($details['alliance_company_id']) ? $details['alliance_company_id'] : [$details['alliance_company_id']];
+
+        // Eliminar asignaciones anteriores
+        $claim->allianceCompanies()->detach();
+
+        // Crear nuevas asignaciones
+        foreach ($allianceCompanyIds as $companyId) {
+            $claim->allianceCompanies()->attach($companyId, ['assignment_date' => now()]);
+        }
     }
-}
+
+
 
 
     private function updateDataCache()
