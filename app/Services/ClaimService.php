@@ -66,81 +66,93 @@ class ClaimService
     public function storeData(array $details, array $technicalIds, array $serviceRequestIds)
     {
         DB::beginTransaction();
-        
+    
         try {
-            // Generar un UUID para el nuevo claim
-            $details['uuid'] = Uuid::uuid4()->toString();
-            // Asignar el user_id_ref_by al ID proporcionado o al del usuario autenticado si no se envía
-            $details['user_id_ref_by'] = $details['user_id_ref_by'] ?? Auth::id();
-            $details['claim_date'] = now();
-            
-            $year = date('Y');
-            
-            // Obtener el último claim del año actual
-            $latestClaim = DB::table('claims')
-                ->whereYear('created_at', $year)
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            // Incrementar el número secuencial
-            $sequenceNumber = $latestClaim ? (int)substr($latestClaim->claim_internal_id, -4) + 1 : 1;
-            $sequenceFormatted = str_pad($sequenceNumber, 4, '0', STR_PAD_LEFT); // Formato 0001, 0002, etc.
-            
-            // Construir el ID interno del claim en el formato "VG-CLAIM-2024-0001"
-            $details['claim_internal_id'] = "VG-CLAIM-{$year}-{$sequenceFormatted}";
-            
-            // Crear el claim en la base de datos
-            $claim = $this->claimRepositoryInterface->store($details);
-            
-            if (!$claim) {
-                throw new Exception('Claim not created');
-            }
-            
-           // Lógica para guardar AffidavitForm si los datos están presentes
-            if (isset($details['affidavit']) && is_array($details['affidavit'])) {
+        // Generar un UUID para el nuevo claim
+        $details['uuid'] = Uuid::uuid4()->toString();
+        // Asignar el user_id_ref_by al ID proporcionado o al del usuario autenticado si no se envía
+        $details['user_id_ref_by'] = $details['user_id_ref_by'] ?? Auth::id();
+        $details['claim_date'] = now();
+        
+        $year = date('Y');
+        
+        // Obtener el último claim del año actual
+        $latestClaim = DB::table('claims')
+            ->whereYear('created_at', $year)
+            ->orderBy('id', 'desc')
+            ->first();
+        
+        // Incrementar el número secuencial
+        $sequenceNumber = $latestClaim ? (int)substr($latestClaim->claim_internal_id, -4) + 1 : 1;
+        $sequenceFormatted = str_pad($sequenceNumber, 4, '0', STR_PAD_LEFT); // Formato 0001, 0002, etc.
+        
+        // Construir el ID interno del claim en el formato "VG-CLAIM-2024-0001"
+        $details['claim_internal_id'] = "VG-CLAIM-{$year}-{$sequenceFormatted}";
+        
+        // Aquí llamamos al repositorio de CompanySignature para obtener el signature_path_id
+        $signaturePathId = $this->claimRepositoryInterface->getSignaturePathId(); // Asegúrate de tener este método implementado en el repositorio
+        
+        if (!$signaturePathId) {
+            throw new Exception('Signature Path ID not found');
+        }
+        
+        // Asignar el signature_path_id en los detalles del claim
+        $details['signature_path_id'] = $signaturePathId;
+        
+        // Crear el claim en la base de datos
+        $claim = $this->claimRepositoryInterface->store($details);
+        
+        if (!$claim) {
+            throw new Exception('Claim not created');
+        }
+        
+        // Lógica para guardar AffidavitForm si los datos están presentes
+        if (isset($details['affidavit']) && is_array($details['affidavit'])) {
             // Generar un UUID para el AffidavitForm
             $affidavitData = $details['affidavit'];
             $affidavitData['uuid'] = Uuid::uuid4()->toString();
-    
+
             // Guardar el AffidavitForm asociado al claim
             $this->claimRepositoryInterface->storeAffidavitForm($affidavitData, $claim->id);
-            }
-
-
-            // Manejar las asignaciones (Alliances, Technicians, etc.)
+        }
+        // Manejar las asignaciones (Alliances, Technicians, etc.)
             //$this->handleAssignments($claim, array_merge($details, [
                 //'alliance_company_id' => $alliancesIds
             //]));
-            $this->handleAssignments($claim, [
-            'alliance_company_id' => $details['alliance_company_id'],
+            
+         // Incluir los technicalIds en el array $details antes de pasarlo
+        $details['technical_user_id'] = $technicalIds;
+
+        // Llamar a handleAssignments con los detalles modificados
+        $this->handleAssignments($claim, $details);
+
+
+        // Asociar los service requests con el claim
+        $claim->serviceRequests()->attach($serviceRequestIds, [
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
-               // Asociar los service requests con el claim
-            
-              $claim->serviceRequests()->attach($serviceRequestIds, [
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-            
-            // Actualizar la caché de datos
-            $this->updateDataCache();
-            
-            DB::commit();
-            
-            return $claim;
+
+        // Actualizar la caché de datos
+        $this->updateDataCache();
+        
+        DB::commit();
+        
+        return $claim;
         } catch (Exception $ex) {
-            DB::rollBack();
-            Log::error('Error occurred while storing claim: ' . $ex->getMessage(), [
-                'exception' => $ex,
-                'service_request_ids' => $serviceRequestIds,
-            ]);
-            throw new Exception('Error occurred while storing claim: ' . $ex->getMessage());
+        DB::rollBack();
+        Log::error('Error occurred while storing claim: ' . $ex->getMessage(), [
+            'exception' => $ex,
+            'service_request_ids' => $serviceRequestIds,
+        ]);
+        throw new Exception('Error occurred while storing claim: ' . $ex->getMessage());
         }
     }
 
 
 
 
-   public function updateData(array $updateDetails, string $uuid, array $alliancesIds, array $technicalIds, array $serviceRequestIds)
+   public function updateData(array $updateDetails, string $uuid, array $technicalIds, array $serviceRequestIds)
     {
     DB::beginTransaction();
 
@@ -157,11 +169,17 @@ class ClaimService
             $this->claimRepositoryInterface->updateAffidavitForm($updateDetails['affidavit'], $existingClaim->id);
         }
 
-        // Manejar las asignaciones
-        $this->handleAssignments($updatedClaim, array_merge($updateDetails, [
-            'alliance_company_id' => $alliancesIds
-        ]));
+            // Manejar las asignaciones
+            //$this->handleAssignments($updatedClaim, array_merge($updateDetails, [
+            //'alliance_company_id' => $alliancesIds
+            //]));
+            // Incluir los technicalIds en el array $details antes de pasarlo
+            $updateDetails['technical_user_id'] = $technicalIds;
 
+            // Llamar a handleAssignments con los detalles modificados
+            $this->handleAssignments($updatedClaim, $updateDetails);
+
+           
       
          $existingClaim->serviceRequests()->sync($serviceRequestIds, [
                         'created_at' => now(),
@@ -229,8 +247,14 @@ class ClaimService
     $this->handleInsuranceAdjusterAssignment($claim, $details);
     $this->handlePublicAdjusterAssignment($claim, $details);
     $this->handlePublicCompanyAssignment($claim, $details);
-    $this->handleTechnicalUserAssignment($claim, $details);
-    $this->handleAllianceCompanyAssignment($claim, $details);
+   
+    if (isset($details['technical_user_id'])) {
+        $this->handleTechnicalUserAssignment($claim, $details);
+    }
+    
+    if (isset($details['alliance_company_id'])) {
+        $this->handleAllianceCompanyAssignment($claim, $details);
+    }
     
 }
 

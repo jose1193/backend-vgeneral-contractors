@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('claim_internal_id');
             $table->string('policy_number');
             $table->string('date_of_loss')->nullable();
-            $table->text('description_of_loss');
+            $table->text('description_of_loss')->nullable();
             $table->integer('number_of_floors')->nullable();
             $table->string('claim_date')->nullable();
             $table->string('claim_status')->nullable();

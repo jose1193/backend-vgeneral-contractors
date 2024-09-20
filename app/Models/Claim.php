@@ -72,7 +72,7 @@ class Claim extends Model
      public function allianceCompanies()
     {
         return $this->belongsToMany(AllianceCompany::class, 'claim_alliances', 'claim_id', 'alliance_company_id')
-                    ->withPivot('assignment_date'); // Incluye columnas adicionales si es necesario
+                    ->withPivot('assignment_date'); 
     }
 
 

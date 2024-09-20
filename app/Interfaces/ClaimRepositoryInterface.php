@@ -13,6 +13,6 @@ interface ClaimRepositoryInterface
     public function storeAffidavitForm(array $data, int $claimId);
     public function updateAffidavitForm(array $data, int $claimId);
     public function restore(string $uuid);
-   
+    public function getSignaturePathId();
    
 }

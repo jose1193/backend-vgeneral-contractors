@@ -28,8 +28,8 @@ class ClaimRequest extends FormRequest
 
     return [
         // Campos requeridos
-        'property_id' => $isStoreRoute ? 'required|exists:customer_properties,id' : 'sometimes|exists:customer_properties,id',
-        'signature_path_id' => $isStoreRoute ? 'required|exists:company_signatures,id' : 'sometimes|exists:company_signatures,id',
+        'property_id' => $isStoreRoute ? 'required|exists:properties,id' : 'sometimes|exists:properties,id',
+        'signature_path_id' => $isStoreRoute ? 'nullable|exists:company_signatures,id' : 'sometimes|exists:company_signatures,id',
         'type_damage_id' => $isStoreRoute ? 'required|exists:type_damages,id' : 'sometimes|exists:type_damages,id',
         'user_id_ref_by' => 'nullable|integer|exists:users,id',
         'policy_number' => $isStoreRoute ? 'required|string|max:255' : 'sometimes|string|max:255',

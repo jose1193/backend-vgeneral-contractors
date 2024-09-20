@@ -99,11 +99,11 @@ class ClaimController extends BaseController
 {
     try {
         // Extraer el array de IDs de alianzas y técnicos
-        $alliancesIds = $request->get('alliance_company_id', []);
+        //$alliancesIds = $request->get('alliance_company_id', []);
         $technicalIds = $request->get('technical_user_id', []);
         $serviceRequestIds = $request->get('service_request_id', []);
         // Pasar ambos parámetros al método updateData
-        $claim = $this->claimService->updateData($request->validated(), $uuid, $alliancesIds, $technicalIds, $serviceRequestIds);
+        $claim = $this->claimService->updateData($request->validated(), $uuid, $technicalIds, $serviceRequestIds);
 
         return ApiResponseClass::sendSimpleResponse(new ClaimResource($claim), 200);
     } catch (\Exception $e) {

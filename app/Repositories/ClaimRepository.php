@@ -5,6 +5,8 @@ namespace App\Repositories;
 use App\Models\Claim;
 
 use App\Models\AffidavitForm;
+use App\Models\CompanySignature;
+
 
 use App\Interfaces\ClaimRepositoryInterface;
 
@@ -81,4 +83,14 @@ class ClaimRepository implements ClaimRepositoryInterface
         return $claim;
         }
 
+        public function getSignaturePathId()
+    {
+        
+        $companySignature = CompanySignature::latest()->first(); // O ajustar la lógica de obtención
+        if ($companySignature) {
+            return $companySignature->id;
+        }
+
+        
+    }
 }
