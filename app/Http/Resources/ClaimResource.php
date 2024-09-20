@@ -20,7 +20,7 @@ class ClaimResource extends JsonResource
             'property_id' => (int) $this->property_id,
             'signature_path_id' => (int) $this->signature_path_id,
             'type_damage_id' =>  (int)$this->type_damage_id,
-            'user_id_ref_by' => $this->referredByUser->name,
+            'user_id_ref_by' => $this->referredByUser->name . ' '. $this->referredByUser->last_name,
             'claim_internal_id' => $this->claim_internal_id,
             'claim_number' => $this->claim_number,
             'policy_number' => $this->policy_number,

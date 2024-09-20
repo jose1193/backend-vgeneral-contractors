@@ -32,7 +32,7 @@ class RoleController extends BaseController
         ->orderBy('roles.id', 'DESC')
         ->get();
 
-    \Log::info('Raw roles data:', $roles->toArray());
+    //\Log::info('Raw roles data:', $roles->toArray());
 
     $result = $roles->groupBy('role_id')->map(function ($role) {
         $permissions = $role->pluck('permission_name')->filter()->values()->all();

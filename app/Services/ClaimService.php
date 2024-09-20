@@ -73,7 +73,7 @@ class ClaimService
         // Asignar el user_id_ref_by al ID proporcionado o al del usuario autenticado si no se envía
         $details['user_id_ref_by'] = $details['user_id_ref_by'] ?? Auth::id();
         $details['claim_date'] = now();
-        
+        $details['claim_status'] = "In Progress";
         $year = date('Y');
         
         // Obtener el último claim del año actual
@@ -307,29 +307,39 @@ private function handlePublicCompanyAssignment($claim, array $details)
     }
 }
 
-private function handleTechnicalUserAssignment($claim, array $details)
-{
-    if (isset($details['technical_user_id']) && is_array($details['technical_user_id'])) {
-        foreach ($details['technical_user_id'] as $technicalUserId) {
-            $technicalAssignment = $claim->technicalAssignments()->updateOrCreate(
-                ['technical_user_id' => $technicalUserId],
-                [
-                    'assignment_status' => $details['assignment_status'] ?? 'Pending',
-                    'assignment_date' => now(),
-                    'work_date' => $details['work_date'] ?? null,
-                ]
-            );
+    private function handleTechnicalUserAssignment($claim, array $details)
+    {
+        // Verifica si se envía un array de técnicos
+        if (isset($details['technical_user_id']) && is_array($details['technical_user_id'])) {
+        $technicalUserIds = $details['technical_user_id'];
 
-            $technicalUser = User::findOrFail($technicalUserId);
+        // Si el array está vacío, eliminamos todas las asignaciones
+        if (empty($technicalUserIds)) {
+            $claim->technicalAssignments()->delete(); // Elimina todas las asignaciones
+        } else {
+            // Si hay IDs, actualiza o crea las asignaciones
+            foreach ($technicalUserIds as $technicalUserId) {
+                $technicalAssignment = $claim->technicalAssignments()->updateOrCreate(
+                    ['technical_user_id' => $technicalUserId],
+                    [
+                        'assignment_status' => $details['assignment_status'] ?? 'Pending',
+                        'assignment_date' => now(),
+                        'work_date' => $details['work_date'] ?? null,
+                    ]
+                );
 
-            // Enviar correo
-            Mail::to($technicalUser->email)->send(new TechnicalUserAssignmentNotification($technicalUser, $claim));
+                $technicalUser = User::findOrFail($technicalUserId);
 
+                // Enviar correo
+                Mail::to($technicalUser->email)->send(new TechnicalUserAssignmentNotification($technicalUser, $claim));
             // Dispatch welcome email
             //SendMailTechnicalUserAssignmentNotification::dispatch($technicalUser, $claim);
+            }
+            }
         }
     }
-}
+
+
 
 
     //private function handleAllianceCompanyAssignment($claim, array $details)

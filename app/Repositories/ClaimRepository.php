@@ -46,7 +46,7 @@ class ClaimRepository implements ClaimRepositoryInterface
 
     public function getClaimsByUser($user)
     {
-        if ($user->hasPermissionTo('Lead', 'api')) {
+        if ($user->hasPermissionTo('Manager', 'api')) {
             // Si el usuario tiene el permiso de "Lead", obtiene todos los claims
             return Claim::orderBy('id', 'DESC')->get();
         } else {
