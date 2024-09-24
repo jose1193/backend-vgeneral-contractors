@@ -2575,7 +2575,7 @@ $categoriesproducts = [
             [
                 'company_name' => 'V General Contractors',
                 'signature_path' => '/signatures/acme_signature.png',
-                'phone' => '346 615-593',
+                'phone' => '346 615-5393',
                 'email' => 'info@vgeneralcontractors.com',
                 'address' => '1302 Waugh Dr # 810 Houston TX 77019',
                 'website' => 'https://vgeneralcontractors.com',
