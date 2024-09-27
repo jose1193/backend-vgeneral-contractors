@@ -3,74 +3,98 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use App\Classes\ApiResponseClass;
 use App\Http\Requests\CompanySignatureRequest;
 use App\Http\Resources\CompanySignatureResource;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
 use App\Services\CompanySignatureService;
+use App\Traits\HandlesApiErrors;
+use App\DTOs\CompanySignatureDTO;
+use Ramsey\Uuid\Uuid;
 
 class CompanySignatureController extends BaseController
 {
+    use HandlesApiErrors;
     protected $dataService;
 
     public function __construct(CompanySignatureService $dataService)
     {
-        // Middleware para permisos
         $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'update', 'destroy']);
-        
         $this->dataService = $dataService;
     }
 
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+        public function index(): JsonResponse
     {
-        $data = $this->dataService->all();
+        try {
+        // Llama al servicio para obtener todas las firmas
+        $companySignatures = $this->dataService->all();
 
-        if ($data === null) {
-            return response()->json(['message' => 'No company signatures found or invalid data structure'], 404);
+        // Retorna la respuesta con los datos de las firmas
+        return ApiResponseClass::sendResponse(CompanySignatureResource::collection($companySignatures), 200);
+        } catch (\Exception $e) {
+        // Maneja el error y retorna una respuesta apropiada
+        return $this->handleError($e, 'Error retrieving company signatures');
         }
-
-        return ApiResponseClass::sendResponse(CompanySignatureResource::collection($data), 200);
     }
+
 
     /**
      * Store a newly created resource in storage.
      */
     public function store(CompanySignatureRequest $request): JsonResponse
     {
-        $details = $request->validated();
-        $data = $this->dataService->storeData($details);
+        try {
+            $validatedData = $request->validated();
+            
+            $dto = CompanySignatureDTO::fromArray($validatedData);
 
-        return ApiResponseClass::sendSimpleResponse(new CompanySignatureResource($data), 200);
+            $company_signature = $this->dataService->storeData($dto);
+            return ApiResponseClass::sendSimpleResponse(new CompanySignatureResource($company_signature), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error storing company signature');
+        }
     }
+
+    /**
+     * Display the specified resource.
+     */
+        public function show(string $uuid): JsonResponse
+    {
+        try {
+        // Convierte el string en un objeto Uuid
+        $uuidObject = Uuid::fromString($uuid);
+
+        // Pasa el objeto Uuid en lugar del string
+        $company_signature = $this->dataService->showData($uuidObject);
+
+        return ApiResponseClass::sendSimpleResponse(new CompanySignatureResource($company_signature), 200);
+        } catch (\Ramsey\Uuid\Exception\InvalidUuidStringException $e) {
+        // Maneja el caso en que el UUID no sea válido
+        return $this->handleError($e, 'Invalid UUID format');
+        } catch (\Exception $e) {
+        return $this->handleError($e, 'Error retrieving company signature');
+        }
+    }
+
 
     /**
      * Update the specified resource in storage.
      */
     public function update(CompanySignatureRequest $request, string $uuid): JsonResponse
     {
-        // Validar y obtener los detalles de la solicitud
-        $details = $request->validated();
-        $data = $this->dataService->updateData($details, $uuid);
+        try {
+             
+            $uuidObject = Uuid::fromString($uuid);
 
-        return ApiResponseClass::sendSimpleResponse(new CompanySignatureResource($data), 200);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $uuid): JsonResponse
-    {
-        $data = $this->dataService->showData($uuid);
-
-        if ($data === null) {
-            return response()->json(['message' => 'Company Signature not found'], 404);
+            $company_signature = $this->dataService->updateData(CompanySignatureDTO::fromArray($request->validated()), $uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new CompanySignatureResource($company_signature), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error updating company signature');
         }
-
-        return ApiResponseClass::sendSimpleResponse(new CompanySignatureResource($data), 200);
     }
 
     /**
@@ -78,12 +102,12 @@ class CompanySignatureController extends BaseController
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $data = $this->dataService->deleteData($uuid);
-
-        if ($data === null) {
-            return response()->json(['message' => 'Company Signature not found'], 404);
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $this->dataService->deleteData($uuidObject);
+            return ApiResponseClass::sendResponse('Company signature deleted successfully', '', 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error deleting company signature');
         }
-
-        return response()->json(['message' => 'Company Signature deleted successfully'], 200);
     }
 }

@@ -40,8 +40,8 @@ class CacheService
 
     public function updateDataCache(string $cacheKey, int $cacheTime, callable $callback): void
     {
-        $userId = Auth::id();
-        $cacheKey = $cacheKey . '_' . $userId;
+        //$userId = Auth::id();
+        //$cacheKey = $cacheKey . '_' . $userId;
 
         if (!empty($cacheKey)) {
             $this->refreshCache($cacheKey, $cacheTime, $callback);

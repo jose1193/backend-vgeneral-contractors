@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
-
 
 class CompanySignatureRequest extends FormRequest
 {
@@ -21,41 +22,75 @@ class CompanySignatureRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, array<int, string|Rule>>
      */
     public function rules(): array
     {
-    $isStoreRoute = $this->is('api/claim/store');
-
-    return [
-        'company_name' => [
-            $isStoreRoute ? 'required' : 'sometimes',
-            'string',
-            'max:255',
-            $isStoreRoute
-                ? Rule::unique('company_signatures')
-                : Rule::unique('company_signatures')->ignore($this->route('company_signature')),
-        ],
-        'signature_path' => 'required',
-        'email' => 'nullable|email|max:255',
-        'phone' => 'nullable|string|max:20',
-        'address' => 'nullable|string|max:255',
-        'website' => 'nullable|url|max:255',
-    ];
+        return [
+            'company_name' => $this->getFieldRules('string', 255),
+            'signature_path' => $this->getFieldRules('string'),
+            'email' => $this->getFieldRules('email', 255),
+            'phone' => $this->getFieldRules('string', 20),
+            'address' => $this->getFieldRules('string', 255),
+            'website' => $this->getFieldRules('url', null, true),
+        ];
     }
-     public function failedValidation(Validator $validator)
 
+    /**
+     * Get the error messages for the defined validation rules.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
     {
+        return [
+            'required' => 'The :attribute field is required.',
+            'string' => 'The :attribute must be a string.',
+            'max' => 'The :attribute may not be greater than :max characters.',
+            'email' => 'The :attribute must be a valid email address.',
+            'url' => 'The :attribute must be a valid URL.',
+        ];
+    }
 
-        throw new HttpResponseException(response()->json([
+    /**
+     * Handle a failed validation attempt.
+     *
+     * @param Validator $validator
+     * @throws HttpResponseException
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422)
+        );
+    }
 
-            'success'   => false,
+    /**
+     * Get the validation rules for a field based on the request method.
+     *
+     * @param string $type
+     * @param int|null $max
+     * @param bool $nullable
+     * @return array<int, string|Rule>
+     */
+    private function getFieldRules(string $type, ?int $max = null, bool $nullable = false): array
+    {
+        $rules = [$type];
 
-            'message'   => 'Validation errors',
+        if ($max !== null) {
+            $rules[] = "max:$max";
+        }
 
-            'errors'      => $validator->errors()
+        if ($this->isMethod('post')) {
+            array_unshift($rules, $nullable ? 'nullable' : 'required');
+        } elseif ($this->isMethod('put') || $this->isMethod('patch')) {
+            array_unshift($rules, 'sometimes', 'nullable');
+        }
 
-        ], 422));
-
+        return $rules;
     }
 }

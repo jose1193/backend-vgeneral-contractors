@@ -60,18 +60,42 @@ class S3Service
         return Storage::disk('s3')->url($s3Path);
     }
 
-    // Stores a signature image in S3
-    public function storeSignatureInS3($signatureData, $storagePath)
+       public function storeSignatureInS3($signatureData, $storagePath)
     {
-        $imageData = base64_decode($signatureData);
-        $image = Image::make($imageData);
-        $resizedImagePath = $this->resizeAndStoreTempImage($image);
-        $uniqueFileName = $this->generateUniqueFileName() . '.png';
-        $s3Path = $storagePath . '/' . $uniqueFileName;
-        Storage::disk('s3')->put($s3Path, file_get_contents($resizedImagePath));
-        unlink($resizedImagePath);
-        return Storage::disk('s3')->url($s3Path);
+        // Verificar si es un PNG o una cadena base64
+        if (preg_match('#^data:image/\w+;base64,#i', $signatureData)) {
+        // Si es base64, lo procesamos como antes
+        $base64Image = preg_replace('#^data:image/\w+;base64,#i', '', $signatureData);
+        $imageData = base64_decode($base64Image);
+
+        if ($imageData === false) {
+            throw new \Exception('Invalid base64 image data');
+        }
+
+        // Crear un archivo temporal
+        $tempFile = tempnam(sys_get_temp_dir(), 'signature');
+        file_put_contents($tempFile, $imageData);
+        $imagePath = $tempFile; // Guardamos la ruta del archivo temporal
+        } else {
+       
+        $imagePath = $signatureData; 
+        }
+
+        // Usar el método `storeAndResize` para almacenar y redimensionar
+        return $this->storeAndResize($imagePath, $storagePath);
     }
+
+    //public function storeSignatureInS3($signatureData, $storagePath)
+    //{
+        //$imageData = base64_decode($signatureData);
+        //$image = Image::make($imageData);
+        //$resizedImagePath = $this->resizeAndStoreTempImage($image);
+        //$uniqueFileName = $this->generateUniqueFileName() . '.png';
+        //$s3Path = $storagePath . '/' . $uniqueFileName;
+        //Storage::disk('s3')->put($s3Path, file_get_contents($resizedImagePath));
+        //unlink($resizedImagePath);
+        //return Storage::disk('s3')->url($s3Path);
+    //}
 
 
     
