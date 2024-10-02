@@ -3,72 +3,96 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Classes\ApiResponseClass;
-use App\Http\Requests\CustomerSignatureRequest; 
-use App\Http\Resources\CustomerSignatureResource; 
-use App\Services\CustomerSignatureService; 
+use App\Http\Requests\CustomerSignatureRequest;
+use App\Http\Resources\CustomerSignatureResource;
+use App\Services\CustomerSignatureService;
+use App\Traits\HandlesApiErrors;
+use App\DTOs\CustomerSignatureDTO;
+use Ramsey\Uuid\Uuid;
 
 class CustomerSignatureController extends BaseController
 {
-    protected $serviceData;
+    use HandlesApiErrors;
 
-    public function __construct(CustomerSignatureService $serviceData)
+    protected $dataService;
+
+    public function __construct(CustomerSignatureService $dataService)
     {
-        // Middleware para permisos, ajústalo según sea necesario
         $this->middleware('check.permission:Super Admin')->only(['destroy']);
-        
-        $this->serviceData = $serviceData;
+        $this->dataService = $dataService;
     }
 
     /**
-     * Muestra una lista de recursos.
+     * Display a listing of the resource.
      */
     public function index(): JsonResponse
     {
-        $customer_signatures = $this->serviceData->all();
-
-        return ApiResponseClass::sendResponse(CustomerSignatureResource::collection($customer_signatures), 200);
+        try {
+            $customerSignatures = $this->dataService->all();
+            return ApiResponseClass::sendResponse(CustomerSignatureResource::collection($customerSignatures), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error retrieving customer signatures');
+        }
     }
 
     /**
-     * Almacena un recurso recién creado en el almacenamiento.
+     * Store a newly created resource in storage.
      */
     public function store(CustomerSignatureRequest $request): JsonResponse
     {
-        $customer_signature = $this->serviceData->storeData($request->validated());
-
-        return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customer_signature), 201);
+        try {
+            $validatedData = $request->validated();
+            $dto = CustomerSignatureDTO::fromArray($validatedData);
+            $customerSignature = $this->dataService->storeData($dto);
+            return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customerSignature), 201);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error storing customer signature');
+        }
     }
 
     /**
-     * Muestra el recurso especificado.
+     * Display the specified resource.
      */
     public function show(string $uuid): JsonResponse
     {
-        $customer_signature = $this->serviceData->showData($uuid);
-
-        return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customer_signature), 200);
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $customerSignature = $this->dataService->showData($uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customerSignature), 200);
+        } catch (\Ramsey\Uuid\Exception\InvalidUuidStringException $e) {
+            return $this->handleError($e, 'Invalid UUID format');
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error retrieving customer signature');
+        }
     }
 
     /**
-     * Actualiza el recurso especificado en el almacenamiento.
+     * Update the specified resource in storage.
      */
     public function update(CustomerSignatureRequest $request, string $uuid): JsonResponse
     {
-        $customer_signature = $this->serviceData->updateData($request->validated(), $uuid);
-
-        return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customer_signature), 200);
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $customerSignature = $this->dataService->updateData(CustomerSignatureDTO::fromArray($request->validated()), $uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customerSignature), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error updating customer signature');
+        }
     }
 
     /**
-     * Elimina el recurso especificado del almacenamiento.
+     * Remove the specified resource from storage.
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $this->serviceData->deleteData($uuid);
-
-        return ApiResponseClass::sendResponse('Customer signature deleted successfully', '', 200);
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $this->dataService->deleteData($uuidObject);
+            return ApiResponseClass::sendResponse('Customer signature deleted successfully', 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error deleting customer signature');
+        }
     }
 }

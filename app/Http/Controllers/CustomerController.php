@@ -1,151 +1,127 @@
 <?php
 
 namespace App\Http\Controllers;
-use App\Http\Controllers\BaseController as BaseController;
-use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Response;
+
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\JsonResponse;
-use App\Models\Customer;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
-use Illuminate\Support\Facades\Cache;
-
-use App\Interfaces\CustomerRepositoryInterface;
-use App\Http\Requests\CustomerRequest;
 use App\Classes\ApiResponseClass;
+use App\Http\Requests\CustomerRequest;
 use App\Http\Resources\CustomerResource;
-
 use App\Services\CustomerService;
+use App\Traits\HandlesApiErrors;
+use App\DTOs\CustomerDTO;
+use Ramsey\Uuid\Uuid;
+use Illuminate\Http\Request;
 
 class CustomerController extends BaseController
 {
-    protected $cacheTime = 720;
+    use HandlesApiErrors;
+
     protected $customerService;
 
     public function __construct(CustomerService $customerService)
     {
-        // Middleware para permisos
-        $this->middleware('check.permission:Lead')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
-        
+        $this->middleware('check.permission:Lead')->only(['index', 'store', 'update']);
         $this->customerService = $customerService;
     }
+    
 
-    // SHOW LIST OF CUSTOMERS
+    /**
+     * Display a listing of the resource.
+     */
     public function index(): JsonResponse
     {
         try {
-            // Obtener todos los clientes usando el servicio
-            $customers = $this->customerService->all();
-
-            if ($customers === null) {
-                return response()->json(['message' => 'No customers found or invalid data structure'], 404);
-            }
-
+            $customers = $this->customerService->allCustomers();
             return ApiResponseClass::sendResponse(CustomerResource::collection($customers), 200);
-
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching customers: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            return response()->json(['message' => 'Database error occurred while fetching customers'], 500);
-
         } catch (\Exception $e) {
-            Log::error('Error occurred while fetching customers: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            return response()->json(['message' => 'Error occurred while fetching customers'], 500);
+            return $this->handleError($e, 'Error retrieving customers');
         }
     }
 
-   
-    // STORE CUSTOMER
-    public function store(CustomerRequest $request)
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(CustomerRequest $request): JsonResponse
     {
         try {
-            // Validar y obtener los detalles de la solicitud
-            $details = $request->validated();
-           
-            // Utilizar el servicio para almacenar el cliente
-            $customer = $this->customerService->storeCustomer($details);
-            
+            $validatedData = $request->validated();
+            $dto = CustomerDTO::fromArray($validatedData);
+            $customer = $this->customerService->storeCustomer($dto);
             return ApiResponseClass::sendSimpleResponse(new CustomerResource($customer), 200);
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while creating customer', 'error' => $ex->getMessage()], 500);
-        }
-    }
-
-    // UPDATE CUSTOMER
-    public function update(CustomerRequest $request, $uuid): JsonResponse
-    {
-        $updateDetails = $request->validated();
-
-        try {
-            // Utilizar el servicio para actualizar el cliente
-            $customer = $this->customerService->updateCustomer($updateDetails, $uuid);
-
-            return ApiResponseClass::sendSimpleResponse(new CustomerResource($customer), 200);
-
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while updating customer', 'error' => $ex->getMessage()], 500);
-        }
-    }
-
-    // SHOW CUSTOMER
-    public function show($uuid)
-    {
-        try {
-            // Utilizar el servicio para obtener el cliente
-            $customer = $this->customerService->showCustomer($uuid);
-
-            return ApiResponseClass::sendSimpleResponse(new CustomerResource($customer), 200);
-
         } catch (\Exception $e) {
-            // Registrar el mensaje de la excepción en el log
-            Log::error('Error occurred while fetching customer: ' . $e->getMessage());
-
-            // Manejar cualquier excepción y devolver una respuesta de error
-            return response()->json(['message' => 'Error occurred while fetching customer', 'error' => $e->getMessage()], 500);
+            return $this->handleError($e, 'Error storing customer');
         }
     }
 
-    // DELETE CUSTOMER
-    public function destroy($uuid)
+    /**
+     * Display the specified resource.
+     */
+    public function show(string $uuid): JsonResponse
     {
         try {
-            // Utilizar el servicio para obtener el cliente
-            $customer = $this->customerService->deleteCustomer($uuid);
-
-            return ApiResponseClass::sendResponse('Customer Delete Successful', '', 200);
-
-        } catch (\Exception $e) {
-            // Registrar el mensaje de la excepción en el log
-            Log::error('Error occurred while deleting customer: ' . $e->getMessage());
-
-            // Manejar cualquier excepción y devolver una respuesta de error
-            return response()->json(['message' => 'Error occurred while deleting customer', 'error' => $e->getMessage()], 500);
-        }
-    }
-
-    // RESTORE CUSTOMER
-    public function restore($uuid)
-    {
-        try {
-            // Utilizar el servicio para restaurar el cliente
-            $customer = $this->customerService->restoreCustomer($uuid);
-
+            $uuidObject = Uuid::fromString($uuid);
+            $customer = $this->customerService->showCustomer($uuidObject);
             return ApiResponseClass::sendSimpleResponse(new CustomerResource($customer), 200);
-
+        } catch (\Ramsey\Uuid\Exception\InvalidUuidStringException $e) {
+            return $this->handleError($e, 'Invalid UUID format');
         } catch (\Exception $e) {
-            // Registrar el mensaje de la excepción en el log
-            Log::error('Error occurred while restoring customer: ' . $e->getMessage());
-
-            // Manejar cualquier excepción y devolver una respuesta de error
-            return response()->json(['message' => 'Error occurred while restoring customer', 'error' => $e->getMessage()], 500);
+            return $this->handleError($e, 'Error retrieving customer');
         }
     }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(CustomerRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $dto = CustomerDTO::fromArray($request->validated());
+            $customer = $this->customerService->updateCustomer($dto, $uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new CustomerResource($customer), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error updating customer');
+        }
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $this->customerService->deleteCustomer($uuidObject);
+            return ApiResponseClass::sendResponse('Customer deleted successfully', '', 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error deleting customer');
+        }
+    }
+
+    /**
+     * Restore the specified resource.
+     */
+    public function restore(string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $customer = $this->customerService->restoreCustomer($uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new CustomerResource($customer), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error restoring customer');
+        }
+    }
+
+      public function checkEmailAvailability(Request $request, string $email): JsonResponse
+    {
+        try {
+            $uuid = $request->query('uuid');
+            $result = $this->customerService->checkEmailAvailability($email, $uuid);
+            return ApiResponseClass::sendResponse($result, 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error checking email availability');
+        }
+    }
+
 }

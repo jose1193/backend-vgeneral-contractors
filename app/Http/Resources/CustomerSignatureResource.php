@@ -28,7 +28,7 @@ class CustomerSignatureResource extends JsonResource
 
 
         // Asegúrate de que `signature_data` sea la URL correcta para una firma
-        'signature_data' => asset($this->signature_data),
+        'signature_data' => $this->signature_data ? asset($this->signature_data) : null,
        
         'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
         'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,

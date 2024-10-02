@@ -1,12 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
-
 
 class CustomerSignatureRequest extends FormRequest
 {
@@ -21,42 +22,74 @@ class CustomerSignatureRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, array<int, string|Rule>>
      */
     public function rules(): array
     {
-    $rules = [
-        // Definición de reglas básicas
-        'signature_data' => ['required'],
-    ];
-
-    // Verificar la ruta y el método
-    if ($this->is('api/customer-signature/update')) {
-        // Si la ruta es de actualización, `customer_id` no es obligatorio
-        $rules['customer_id'] = ['nullable', 'integer'];
-    } else if ($this->isMethod('POST')) {
-        // Si es una solicitud POST (creación), `customer_id` debe ser obligatorio
-        $rules['customer_id'] = ['required', 'integer', Rule::unique('customer_signatures')];
+        return [
+            'customer_id' => $this->getFieldRules('integer'),
+            'signature_data' => $this->getFieldRules('string'),
+            // Add more fields as needed
+        ];
     }
 
-    return $rules;
-    }
-
-
-
-    public function failedValidation(Validator $validator)
-
+    /**
+     * Get the error messages for the defined validation rules.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
     {
+        return [
+            'required' => 'The :attribute field is required.',
+            'integer' => 'The :attribute must be an integer.',
+            'string' => 'The :attribute must be a string.',
+            'unique' => 'The :attribute has already been taken.',
+        ];
+    }
 
-        throw new HttpResponseException(response()->json([
+    /**
+     * Handle a failed validation attempt.
+     *
+     * @param Validator $validator
+     * @throws HttpResponseException
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422)
+        );
+    }
 
-            'success'   => false,
+    /**
+     * Get the validation rules for a field based on the request method.
+     *
+     * @param string $type
+     * @param int|null $max
+     * @param bool $nullable
+     * @return array<int, string|Rule>
+     */
+    private function getFieldRules(string $type, ?int $max = null, bool $nullable = false): array
+    {
+        $rules = [$type];
 
-            'message'   => 'Validation errors',
+        if ($max !== null) {
+            $rules[] = "max:$max";
+        }
 
-            'errors'      => $validator->errors()
+        if ($this->isMethod('post')) {
+            array_unshift($rules, $nullable ? 'nullable' : 'required');
+            if ($type === 'integer' && $this->input('customer_id')) {
+                $rules[] = Rule::unique('customer_signatures', 'customer_id');
+            }
+        } elseif ($this->isMethod('put') || $this->isMethod('patch')) {
+            array_unshift($rules, 'sometimes', 'nullable');
+        }
 
-        ], 422));
-
+        return $rules;
     }
 }

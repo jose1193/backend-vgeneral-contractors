@@ -187,6 +187,7 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     Route::put('/update/{uuid}', [CustomerController::class, 'update']); 
     Route::delete('/delete/{uuid}', [CustomerController::class, 'destroy']);
     Route::put('/restore/{uuid}', [CustomerController::class, 'restore']); 
+    Route::get('/customer-email-check/{email}', [CustomerController::class, 'checkEmailAvailability']);
     });
 
     // Routes related to CustomerProperty

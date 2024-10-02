@@ -1,218 +1,189 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Interfaces\CustomerSignatureRepositoryInterface;
-use App\Http\Controllers\BaseController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
+use App\Interfaces\S3ServiceInterface;
+use App\Interfaces\TransactionServiceInterface;
+use App\Interfaces\CacheServiceInterface;
+use App\DTOs\CustomerSignatureDTO;
 use Exception;
-use Illuminate\Database\QueryException;
-use App\Helpers\ImageHelper;
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
+use Psr\Log\LoggerInterface;
+use Illuminate\Support\Str;
 
 class CustomerSignatureService
 {
-    protected $signatureRepository;
-    protected $baseController;
-    protected $cacheTime = 720; // Cache time in minutes
+    private const CACHE_TIME = 720; // minutes
+    private const CACHE_KEY_LIST = 'customer_signatures_user_list_';
+    private const SIGNATURE_S3_PATH = 'public/customer_signatures';
 
     public function __construct(
-        CustomerSignatureRepositoryInterface $signatureRepository,
-        BaseController $baseController
-    ) {
-        $this->signatureRepository = $signatureRepository;
-        $this->baseController = $baseController;
+        private readonly CustomerSignatureRepositoryInterface $repository,
+        private readonly S3Service $s3Service,
+        private readonly TransactionService $transactionService,
+        private readonly CacheService $cacheService,
+        private readonly LoggerInterface $logger
+    ) {}
+
+    public function all(): Collection
+    {   
+        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
+        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getSignaturesByUser(Auth::user()));
     }
 
-    private function getUserId()
+    public function storeData(CustomerSignatureDTO $dto): object
     {
-        return Auth::id();
+        return $this->transactionService->handleTransaction(function () use ($dto) {
+            $details = $this->prepareSignatureDetails($dto);
+            $signatureUrl = $this->storeSignatureInS3($details['signature_data']);
+            $details['signature_data'] = $signatureUrl;
+            $signature = $this->repository->store($details);
+            $this->updateDataCache();
+            return $signature;
+        }, 'storing customer signature');
     }
 
-    public function all()
+    public function updateData(CustomerSignatureDTO $dto, UuidInterface $uuid): ?object
     {
-        $userId = $this->getUserId();
-        $cacheKey = 'signatures_total_list_' . $userId;
+        return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
+            $existingSignature = $this->getExistingSignature($uuid);
+            $this->validateUserPermission($existingSignature);
 
-        return $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () {
-            return $this->signatureRepository->getSignaturesByUser(Auth::user());
-        });
+            $updateDetails = $this->prepareUpdateDetails($dto, $uuid, $existingSignature);
+            $signature = $this->repository->update($updateDetails, $uuid->toString());
+
+            $this->updateCache($uuid, $signature);
+            $this->updateDataCache();
+            return $signature;
+        }, 'updating customer signature');
     }
 
-    public function storeData(array $details)
+    public function showData(UuidInterface $uuid): ?object
     {
-        return $this->handleTransaction(function () use ($details) {
-            $userId = $this->getUserId();
-
-            try {
-                $signatureUrl = $this->storeSignatureInS3($details['signature_data']);
-                $userIdRefBy = $details['user_id_ref_by'] ?? $userId;
-
-                $signature = $this->signatureRepository->store([
-                    'uuid' => Uuid::uuid4()->toString(),
-                    'customer_id' => $details['customer_id'],
-                    'signature_data' => $signatureUrl,
-                    'user_id_ref_by' => $userIdRefBy
-                ]);
-
-                $this->updateDataCache();
-                return $signature;
-
-            } catch (QueryException $e) {
-                $this->handleException($e, 'storing signature');
-            } catch (Exception $e) {
-                $this->handleException($e, 'storing signature');
-            }
-        });
+        $cacheKey = $this->generateCacheKey('customer_signature_', $uuid->toString());
+        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByUuid($uuid->toString()));
     }
 
-    public function updateData(array $updateDetails, string $uuid)
+    public function deleteData(UuidInterface $uuid): bool
     {
-        return $this->handleTransaction(function () use ($updateDetails, $uuid) {
-            $userId = $this->getUserId();
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingSignature = $this->getExistingSignature($uuid);
+            $this->validateUserPermission($existingSignature);
 
-            try {
-                $existingSignature = $this->signatureRepository->getByUuid($uuid);
+            $this->repository->delete($uuid->toString());
+            $this->deleteSignatureFromS3($existingSignature);
 
-                if (!$existingSignature) {
-                    throw new Exception('Signature not found.');
-                }
-
-                if (isset($updateDetails['signature_data'])) {
-                    $updateDetails['signature_data'] = $this->replaceSignatureInS3($existingSignature, $updateDetails['signature_data']);
-                } else {
-                    $updateDetails['signature_data'] = $existingSignature->signature_data;
-                }
-
-                $updateDetails['user_id_ref_by'] = $updateDetails['user_id_ref_by'] ?? $userId;
-
-                $updatedSignature = $this->signatureRepository->update($updateDetails, $uuid);
-
-                $this->updateDataCache();
-                return $updatedSignature;
-
-            } catch (QueryException $e) {
-                $this->handleException($e, 'updating signature');
-            } catch (Exception $e) {
-                $this->handleException($e, 'updating signature');
-            }
-        });
+            $this->invalidateCache($uuid);
+            $this->updateDataCache();
+            
+            return true;
+        }, 'deleting customer signature');
     }
 
-    public function showData(string $uuid)
+    private function prepareSignatureDetails(CustomerSignatureDTO $dto): array
     {
-        $cacheKey = 'signature_' . $uuid;
-
-        return $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-            try {
-                return $this->signatureRepository->getByUuid($uuid);
-            } catch (QueryException $e) {
-                $this->handleException($e, 'fetching signature');
-            } catch (Exception $e) {
-                $this->handleException($e, 'fetching signature');
-            }
-            return null;
-        });
-    }
-
-    public function deleteData(string $uuid)
-    {
-        return $this->handleTransaction(function () use ($uuid) {
-            try {
-                $existingSignature = $this->signatureRepository->getByUuid($uuid);
-
-                if (!$existingSignature) {
-                    throw new Exception('Signature not found.');
-                }
-
-                $this->deleteSignatureFromS3($existingSignature->signature_data);
-                $this->signatureRepository->delete($uuid);
-
-                $this->baseController->invalidateCache('signature_' . $uuid);
-                $this->updateDataCache();
-
-            } catch (QueryException $e) {
-                $this->handleException($e, 'deleting signature');
-            } catch (Exception $e) {
-                $this->handleException($e, 'deleting signature');
-            }
-        });
-    }
-
-    private function handleTransaction(callable $callback)
-    {
-        DB::beginTransaction();
-        try {
-            $result = $callback();
-            DB::commit();
-            return $result;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            $this->handleException($ex, 'transaction');
-            throw $ex;
-        }
-    }
-
-    private function handleException(Exception $e, string $context)
-    {
-        Log::error("Error occurred while {$context}: " . $e->getMessage(), [
-            'exception' => $e,
-            'stack_trace' => $e->getTraceAsString(),
-            'user_id' => Auth::id(),
-            'context' => $context
-        ]);
-
-        throw $e;
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+            'user_id_ref_by' => $dto->userIdRefBy ?? Auth::id(),
+        ];
     }
 
     private function storeSignatureInS3(string $signatureData): string
     {
-        try {
-            return ImageHelper::storeSignatureInS3($signatureData, 'public/customer_signatures');
-        } catch (Exception $e) {
-            $this->handleException($e, 'storing signature in S3');
+        return $this->s3Service->storeSignatureInS3($signatureData, self::SIGNATURE_S3_PATH);
+    }
+
+    private function getExistingSignature(UuidInterface $uuid): object
+    {
+        $signature = $this->repository->getByUuid($uuid->toString());
+        if (!$signature) {
+            throw new Exception("Signature not found");
+        }
+        return $signature;
+    }
+
+    private function validateUserPermission(object $signature): void
+    {
+        if ($signature->user_id_ref_by !== Auth::id()) {
+            throw new Exception("No permission to perform this operation.");
         }
     }
 
-    private function replaceSignatureInS3($existingSignature, string $newSignatureData): string
+    private function prepareUpdateDetails(CustomerSignatureDTO $dto, UuidInterface $uuid, object $existingSignature): array
     {
-        try {
-            if ($existingSignature && isset($existingSignature->signature_data)) {
-                $this->deleteSignatureFromS3($existingSignature->signature_data);
+        $updateDetails = [
+            'uuid' => $uuid->toString(),
+            'user_id_ref_by' => $dto->userIdRefBy ?? Auth::id(),
+        ];
+
+        $fields = ['customerId', 'signatureData'];
+        foreach ($fields as $field) {
+            if ($dto->$field !== null) {
+                $updateDetails[Str::snake($field)] = $dto->$field;
             }
-            return $this->storeSignatureInS3($newSignatureData);
-        } catch (Exception $e) {
-            $this->handleException($e, 'replacing signature in S3');
+        }
+
+        if ($dto->signatureData !== null) {
+            $updateDetails['signature_data'] = $this->handleSignatureDataUpdate($dto->signatureData, $existingSignature);
+        }
+
+        return $updateDetails;
+    }
+
+    private function handleSignatureDataUpdate(string $newSignatureData, object $existingSignature): string
+    {
+        if ($this->isValidUrl($newSignatureData)) {
+            return $existingSignature->signature_data;
+        }
+        return $this->replaceSignatureInS3($existingSignature, $newSignatureData);
+    }
+
+    private function isValidUrl(string $url): bool
+    {
+        return filter_var($url, FILTER_VALIDATE_URL) !== false;
+    }
+
+    private function replaceSignatureInS3(object $existingSignature, string $newSignatureData): string
+    {
+        if (isset($existingSignature->signature_data)) {
+            $this->s3Service->deleteFileFromStorage($existingSignature->signature_data);
+        }
+        return $this->s3Service->storeSignatureInS3($newSignatureData, self::SIGNATURE_S3_PATH);
+    }
+
+    private function deleteSignatureFromS3(object $signature): void
+    {
+        if (isset($signature->signature_data)) {
+            $this->s3Service->deleteFileFromStorage($signature->signature_data);
         }
     }
 
-    private function deleteSignatureFromS3(string $signatureUrl)
+    private function updateCache(UuidInterface $uuid, object $signature): void
     {
-        try {
-            if (!empty($signatureUrl)) {
-                ImageHelper::deleteFileFromStorage($signatureUrl);
-            }
-        } catch (Exception $e) {
-            $this->handleException($e, 'deleting signature from S3');
-        }
+        $cacheKey = $this->generateCacheKey('customer_signature_', $uuid->toString());
+        $this->cacheService->refreshCache($cacheKey, self::CACHE_TIME, fn() => $signature);
     }
 
-    private function updateDataCache()
+    private function updateDataCache(): void
     {
-        $userId = Auth::id();
-        $cacheKey = 'signatures_total_list_' . $userId;
+        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
+        $this->cacheService->updateDataCache($cacheKey, self::CACHE_TIME, fn() => $this->repository->getSignaturesByUser(Auth::user()));
+    }
 
-        try {
-            $this->baseController->refreshCache($cacheKey, $this->cacheTime, function () {
-                return $this->signatureRepository->index();
-            });
-        } catch (QueryException $e) {
-            $this->handleException($e, 'updating cache');
-        } catch (Exception $e) {
-            $this->handleException($e, 'updating cache');
-        }
+    private function invalidateCache(UuidInterface $uuid): void
+    {
+        $this->cacheService->invalidateCache($this->generateCacheKey('customer_signature_', $uuid->toString()));
+    }
+
+    private function generateCacheKey(string $prefix, string $suffix): string
+    {
+        return $prefix . $suffix;
     }
 }

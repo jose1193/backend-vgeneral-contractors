@@ -1,89 +1,88 @@
 <?php
 
 namespace App\Repositories;
+
 use App\Models\Customer;
+use App\Models\CustomerSignature;
+use App\Models\User;
 use App\Interfaces\CustomerRepositoryInterface;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class CustomerRepository implements CustomerRepositoryInterface
 {
-    /**
-     * Create a new class instance.
-     */
-    public function index()
+    public function index(): Collection
     {
         return Customer::withTrashed()->orderBy('id', 'DESC')->get();
     }
 
-    /**
-     * Find a customer by UUID.
-     *
-     * @param  string  $uuid
-     * @return \App\Models\Customer
-     */
-    public function getByUuid($uuid)
+    public function getByUuid(string $uuid): Customer
     {
         return Customer::where('uuid', $uuid)->firstOrFail();
     }
 
-    /**
-     * Create a new customer.
-     *
-     * @param  array  $data
-     * @return \App\Models\Customer
-     */
-    public function store(array $data)
+    public function getByUser($user)
+    {
+    if ($user->hasRole('Super Admin', 'api')) {
+        return Customer::withTrashed()->orderBy('id', 'DESC')->get();
+    } else {
+        return Customer::where('user_id', $user->id)
+                       ->orderBy('id', 'DESC')
+                       ->get();
+    }
+    }
+
+    public function store(array $data): Customer
     {
         return Customer::create($data);
     }
 
-    /**
-     * Update a customer by UUID.
-     *
-     * @param  array   $data
-     * @param  string  $uuid
-     * @return \App\Models\Customer
-     */
-    public function update(array $data, $uuid)
-{
-    $customer = $this->getByUuid($uuid);
-    
-    if (!$customer) {
-        throw new ModelNotFoundException("Customer not found with UUID: {$uuid}");
-    }
-    
-    $customer->update($data);
-
-    return $customer;
-}
-
-    /**
-     * Delete a customer by UUID.
-     *
-     * @param  string  $uuid
-     * @return bool|null
-     */
-    public function delete($uuid)
+    public function update(array $data, string $uuid): Customer
     {
-        $customer = Customer::where('uuid', $uuid)->firstOrFail();
+        $customer = $this->getByUuid($uuid);
+        $customer->update($data);
+        return $customer;
+    }
 
+    public function delete(string $uuid): bool
+    {
+        $customer = $this->getByUuid($uuid);
         return $customer->delete();
     }
 
-    /**
-     * Restore a customer by UUID.
-     *
-     * @param  string  $uuid
-     * @return \App\Models\Customer
-     */
-    public function restore($uuid)
+    public function restore(string $uuid): Customer
     {
         $customer = Customer::withTrashed()->where('uuid', $uuid)->firstOrFail();
         if (!$customer->trashed()) {
-            throw new \Exception('Customer already restored');
-        }
+        throw new \Exception('Customer already restored');
+    }
 
         $customer->restore();
-
         return $customer;
     }
+
+
+
+    public function isSuperAdmin(int $userId): bool
+    {
+    return User::findOrFail($userId)->hasRole('Super Admin');
+    }
+
+    public function emailExistsForOtherCustomer(string $email, ?string $excludeUuid = null): bool
+    {
+        $query = Customer::where('email', $email);
+        
+        if ($excludeUuid) {
+            $query->where('uuid', '!=', $excludeUuid);
+        }
+
+        return $query->exists();
+    }
+
+    public function emailExists(string $email): bool
+    {
+        return Customer::where('email', $email)->exists();
+    }
+
+    
 }

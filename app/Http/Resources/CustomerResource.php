@@ -24,6 +24,11 @@ class CustomerResource extends JsonResource
             'cell_phone' => $this->cell_phone,
             'occupation' => $this->occupation,
             'property' => PropertyResource::collection($this->properties),
+             // Obtener las firmas del cliente
+            'signature_customer' => $this->customerSignature ? [
+            'uuid' => $this->customerSignature->uuid,
+            'signature_data' => asset($this->customerSignature->signature_data), 
+            ] : null,
             'user_id' => (int) $this->user_id,
             'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
             'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,

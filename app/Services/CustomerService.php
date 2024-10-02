@@ -1,169 +1,204 @@
-<?php // app/Services/Customer.php
+<?php
+
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Interfaces\CustomerRepositoryInterface;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use App\Http\Controllers\BaseController;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Customer;
+use App\Interfaces\TransactionServiceInterface;
+use App\Interfaces\CacheServiceInterface;
+use App\DTOs\CustomerDTO;
+use Exception;
 use Ramsey\Uuid\Uuid;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\WelcomeMailCustomer;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Database\QueryException;
-
+use Illuminate\Support\Str;
 
 class CustomerService
 {
-    protected $baseController;
-    protected $customerRepositoryInterface;
-    protected $cacheKey;
-    protected $cacheTime = 720;
-    protected $userId;
-    
-    public function __construct(CustomerRepositoryInterface $customerRepositoryInterface, BaseController $baseController)
+    private const CACHE_TIME = 720; // minutes
+    private const CACHE_KEY_LIST = 'customers_user_list_';
+
+    public function __construct(
+        private readonly CustomerRepositoryInterface $repository,
+        private readonly TransactionService $transactionService,
+        private readonly CacheService $cacheService
+    ) {}
+
+    public function allCustomers(): Collection
     {
-        $this->customerRepositoryInterface = $customerRepositoryInterface;
-        $this->baseController = $baseController;
+        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
+        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByUser(Auth::user()));
     }
 
-    public function all()
+    public function storeCustomer(CustomerDTO $customerDto): object
     {
-        try {
-            $this->userId = Auth::id();
-            $this->cacheKey = 'customers_' . $this->userId . '_total_list';
+        return $this->transactionService->handleTransaction(function () use ($customerDto) {
+            $customerDetails = $this->prepareCustomerDetails($customerDto);
+            $customer = $this->repository->store($customerDetails);
+            $this->updateDataCache();
+            return $customer;
+        }, 'storing customer');
+    }
 
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->customerRepositoryInterface->index();
-            });
+    public function updateCustomer(CustomerDTO $customerDto, UuidInterface $uuid): ?object
+    {
+        return $this->transactionService->handleTransaction(function () use ($customerDto, $uuid) {
+            $existingCustomer = $this->getExistingCustomer($uuid);
+            $this->validateUserPermission($existingCustomer);
 
-            $data = Cache::get($this->cacheKey);
-
-            if ($data === null || !is_iterable($data)) {
-                Log::warning('Data fetched from cache is null or not iterable');
-                return null;
+            // Verificar si el email ya existe para otro cliente
+            if ($customerDto->email && $this->emailExistsForOtherCustomer($customerDto->email, $uuid->toString())) {
+                throw new Exception("The email has already been registered by another client.");
             }
 
-            return $data;
+            $updateDetails = $this->prepareUpdateDetails($customerDto);
+            $customer = $this->repository->update($updateDetails, $uuid->toString());
 
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching customers: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            throw $e;
-
-        } catch (\Exception $e) {
-            Log::error('Error occurred while fetching customers: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            throw $e;
-        }
+            $this->updateCache($uuid, $customer);
+            $this->updateDataCache();
+            return $customer;
+        }, 'updating customer');
     }
 
-    public function updateCustomer(array $updateDetails, string $uuid)
+    private function emailExistsForOtherCustomer(string $email, string $excludeUuid): bool
     {
-        DB::beginTransaction();
+        return $this->repository->emailExistsForOtherCustomer($email, $excludeUuid);
+    }
 
-        try {
-            $customer = $this->customerRepositoryInterface->getByUuid($uuid);
+    public function showCustomer(UuidInterface $uuid): ?object
+    {
+        $cacheKey = $this->generateCacheKey('customer_', $uuid->toString());
+        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByUuid($uuid->toString()));
+    }
+
+    public function deleteCustomer(UuidInterface $uuid): bool
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingCustomer = $this->getExistingCustomer($uuid);
+            $this->validateUserPermission($existingCustomer);
             
+            $this->repository->delete($uuid->toString());
+            $this->invalidateCustomerCache($uuid);
+            $this->updateDataCache();
+            return true;
+        }, 'deleting customer');
+    }
 
-            $customer = $this->customerRepositoryInterface->update($updateDetails, $uuid);
-
-           
-            $this->updateCustomersCache();
-
-            DB::commit();
-
+    public function restoreCustomer(UuidInterface $uuid): object
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $customer = $this->repository->restore($uuid->toString());
+            $this->updateCache($uuid, $customer);
+            $this->updateDataCache();
             return $customer;
-        } catch (\Exception $ex) {
-            DB::rollBack();
-            throw new \Exception('Error occurred while updating customer: ' . $ex->getMessage());
+        }, 'restoring customer');
+    }
+
+    private function prepareCustomerDetails(CustomerDTO $dto): array
+    {
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+            'user_id' => Auth::id(),
+        ];
+    }
+
+    private function prepareUpdateDetails(CustomerDTO $dto): array
+{
+    $updateDetails = [
+        'user_id_ref_by' => Auth::id(),
+    ];
+
+    $fields = [
+        'name' => 'name',
+        'email' => 'email',
+        'cell_phone' => 'cellPhone',
+        'home_phone' => 'homePhone',
+        'occupation' => 'occupation',
+        'last_name' => 'lastName',
+        'signature_data' => 'signatureData'
+    ];
+
+    foreach ($fields as $dbField => $dtoField) {
+        if (property_exists($dto, $dtoField) && $dto->$dtoField !== null) {
+            $updateDetails[$dbField] = $dto->$dtoField;
         }
     }
 
-    
+    return $updateDetails;
+}
 
-    private function updateCustomersCache()
+    private function getExistingCustomer(UuidInterface $uuid): object
     {
-        $this->userId = Auth::id();
-        $this->cacheKey = 'customers_' . $this->userId . '_total_list';
+        $customer = $this->repository->getByUuid($uuid->toString());
+        if (!$customer) {
+            throw new Exception("Customer not found");
+        }
+        return $customer;
+    }
 
-        if (!empty($this->cacheKey)) {
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return Customer::withTrashed()->orderBy('id', 'DESC')->get();
-            });
+    private function validateUserPermission(): void
+    {
+        $userId = Auth::id();
+        $isSuperAdmin = $this->repository->isSuperAdmin($userId);
+
+        if (!$isSuperAdmin) {
+            throw new Exception("Unauthorized access");
+        }
+    }
+
+    private function updateCache(UuidInterface $uuid, object $customer): void
+    {
+        $cacheKey = $this->generateCacheKey('customer_', $uuid->toString());
+        $this->cacheService->refreshCache($cacheKey, self::CACHE_TIME, fn() => $customer);
+    }
+
+    private function updateDataCache(): void
+    {
+        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
+        $this->cacheService->updateDataCache($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByUser(Auth::user()));
+    }
+
+    private function invalidateCustomerCache(UuidInterface $uuid): void
+    {
+        $this->cacheService->invalidateCache($this->generateCacheKey('customer_', $uuid->toString()));
+    }
+
+    private function generateCacheKey(string $prefix, string $suffix): string
+    {
+        return $prefix . $suffix;
+    }
+
+
+    public function checkEmailAvailability(string $email, ?string $uuid = null): array
+    {
+        if ($uuid) {
+            $customer = $this->repository->getByUuid($uuid);
+            if (!$customer) {
+                return [
+                    'available' => false,
+                    'message' => 'Customer not found with the provided UUID'
+                ];
+            }
+
+            if ($customer->email === $email) {
+                return [
+                    'available' => true,
+                    'message' => 'This is your current email'
+                ];
+            }
+
+            $exists = $this->repository->emailExistsForOtherCustomer($email, $uuid);
         } else {
-            throw new \Exception('Invalid cacheKey provided');
+            $exists = $this->repository->emailExists($email);
         }
-    }
 
-    public function storeCustomer(array $details)
-    {
-        DB::beginTransaction();
-
-        try {
-            $details['uuid'] = Uuid::uuid4()->toString();
-            $details['user_id'] = Auth::id();
-
-            $customer = $this->customerRepositoryInterface->store($details);
-
-            $this->updateCustomersCache();
-
-            DB::commit();
-
-            return $customer;
-        } catch (\Exception $ex) {
-            DB::rollBack();
-            throw new \Exception('Error occurred while creating customer: ' . $ex->getMessage());
-        }
-    }
-
-    public function showCustomer(string $uuid)
-    {
-        try {
-            $cacheKey = 'customer_' . $uuid;
-
-            $customer = $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-                return $this->customerRepositoryInterface->getByUuid($uuid);
-            });
-
-            return $customer;
-
-        } catch (\Exception $ex) {
-            throw new \Exception('Error occurred while retrieving customer: ' . $ex->getMessage());
-        }
-    }
-
-    public function deleteCustomer(string $uuid)
-    {
-        try {
-            $customer = $this->customerRepositoryInterface->delete($uuid);
-
-            $this->baseController->invalidateCache('customer_' . $uuid);
-
-            $this->updateCustomersCache();
-
-            return $customer;
-        } catch (\Exception $ex) {
-            throw new \Exception('Error occurred while deleting customer: ' . $ex->getMessage());
-        }
-    }
-
-    public function restoreCustomer(string $uuid)
-    {
-        try {
-            $customer = $this->customerRepositoryInterface->restore($uuid);
-
-            $this->baseController->invalidateCache('customer_' . $uuid);
-
-            $this->updateCustomersCache();
-
-            return $customer;
-        } catch (\Exception $ex) {
-            throw new \Exception('Error occurred while restoring customer: ' . $ex->getMessage());
-        }
+        return [
+            'available' => !$exists,
+            'message' => $exists ? 'Email is already taken' : 'Email is available'
+        ];
     }
 }
