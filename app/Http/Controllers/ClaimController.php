@@ -23,7 +23,7 @@ class ClaimController extends BaseController
     public function __construct(ClaimService $claimService)
     {
         // Middleware para permisos
-        $this->middleware('check.permission:Lead')->only(['update']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'store', 'update']);
         
         $this->claimService = $claimService;
     }

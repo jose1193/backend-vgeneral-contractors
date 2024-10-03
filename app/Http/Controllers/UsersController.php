@@ -1,128 +1,123 @@
 <?php
 
 namespace App\Http\Controllers;
-use App\Http\Controllers\BaseController as BaseController;
+
+use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Http\JsonResponse;
+use App\Classes\ApiResponseClass;
+use App\Http\Requests\CreateUserRequest;
+use App\Http\Resources\UserResource;
+use App\Services\UserService;
+use App\Traits\HandlesApiErrors;
+use App\DTOs\UserDTO;
+use Ramsey\Uuid\Uuid;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Response;
-use Illuminate\Http\JsonResponse;
-use App\Models\User;
-use Hash;
-
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
-use Illuminate\Support\Facades\Cache;
-
-use App\Interfaces\UsersRepositoryInterface;
-use App\Http\Requests\CreateUserRequest;
-use App\Classes\ApiResponseClass;
-use App\Http\Resources\UserResource;
-
-use App\Services\UserService;
-
-
 
 class UsersController extends BaseController
 {
-
-    
-    protected $cacheTime = 720;
-   
+    use HandlesApiErrors;
 
     protected $userService;
+    protected $cacheTime = 720;
 
     public function __construct(UserService $userService)
     {
-         // Middleware para permisos
-        $this->middleware('check.permission:Super Admin')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
-        
+        $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'update', 'destroy', 'restore']);
         $this->userService = $userService;
     }
 
-      public function getUsersRoles(string $role): JsonResponse
+    public function index(): JsonResponse
     {
-            try {
-           
-            $users = $this->userService->getUsersByRole($role);
-
-            if ($users->isEmpty()) {
-            return response()->json(['message' => 'No Public Adjusters found'], 404);
-            }
-
-            // Retorna la lista de usuarios en formato JSON
+        try {
+            $users = $this->userService->all();
             return ApiResponseClass::sendResponse(UserResource::collection($users), 200);
-
-            } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching Public Adjusters: ' . $e->getMessage(), [
-            'exception' => $e
-            ]);
-            return response()->json(['message' => 'Database error occurred while fetching Public Adjusters'], 500);
-
-            } catch (\Exception $e) {
-            Log::error('Error occurred while fetching Public Adjusters: ' . $e->getMessage(), [
-            'exception' => $e
-            ]);
-            return response()->json(['message' => 'Error occurred while fetching Public Adjusters'], 500);
-            }   
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error retrieving users');
         }
+    }
+
+    public function store(CreateUserRequest $request): JsonResponse
+    {
+        try {
+            $validatedData = $request->validated();
+            $dto = UserDTO::fromArray($validatedData);
+            $user = $this->userService->storeUser($dto);
+            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error storing user');
+        }
+    }
+
+    public function show(string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $user = $this->userService->showUser($uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
+        } catch (\Ramsey\Uuid\Exception\InvalidUuidStringException $e) {
+            return $this->handleError($e, 'Invalid UUID format');
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error retrieving user');
+        }
+    }
+
+    public function update(CreateUserRequest $request, string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $dto = UserDTO::fromArray($request->validated());
+            $user = $this->userService->updateUser($dto, $uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error updating user');
+        }
+    }
+
+    public function destroy(string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $this->userService->deleteUser($uuidObject);
+            return ApiResponseClass::sendResponse('User deleted successfully', '', 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error deleting user');
+        }
+    }
+
+    public function restore(string $uuid): JsonResponse
+    {
+        try {
+            $uuidObject = Uuid::fromString($uuid);
+            $user = $this->userService->restoreUser($uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error restoring user');
+        }
+    }
+
+    public function getUsersRoles(string $role): JsonResponse
+    {
+        try {
+            $users = $this->userService->getUsersByRole($role);
+            return ApiResponseClass::sendResponse(UserResource::collection($users), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error retrieving users by role');
+        }
+    }
 
         public function getTechnicalServices(): JsonResponse
     {
         try {
-        // Obtener usuarios con el rol "Technical Services"
-        $users = $this->userService->getUsersByRole('Technical Services');
-
-        if ($users->isEmpty()) {
-            return response()->json(['message' => 'No Technical Services found'], 404);
-        }
-
-        // Retorna la lista de usuarios en formato JSON
-        return ApiResponseClass::sendResponse(UserResource::collection($users), 200);
-
-        } catch (QueryException $e) {
-        Log::error('Database error occurred while fetching Technical Services: ' . $e->getMessage(), [
-            'exception' => $e
-        ]);
-        return response()->json(['message' => 'Database error occurred while fetching Technical Services'], 500);
-
-        } catch (\Exception $e) {
-        Log::error('Error occurred while fetching Technical Services: ' . $e->getMessage(), [
-            'exception' => $e
-        ]);
-        return response()->json(['message' => 'Error occurred while fetching Technical Services'], 500);
-        }
-    }
-
-    // SHOW LIST OF USERS
-
-       public function index(): JsonResponse
-    {
-        try {
-            // Obtener todos los usuarios usando el servicio
-            $users = $this->userService->all();
-
-            if ($users === null) {
-                return response()->json(['message' => 'No users found or invalid data structure'], 404);
+            $users = $this->userService->getUsersByRole('Technical Services');
+            
+            if ($users->isEmpty()) {
+                return ApiResponseClass::sendResponse(null, 'No Technical Services found', 404);
             }
-
+            
             return ApiResponseClass::sendResponse(UserResource::collection($users), 200);
-
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching users: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            return response()->json(['message' => 'Database error occurred while fetching users'], 500);
-
         } catch (\Exception $e) {
-            Log::error('Error occurred while fetching users: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            return response()->json(['message' => 'Error occurred while fetching users'], 500);
+            return $this->handleError($e, 'Error retrieving Technical Services');
         }
     }
 
@@ -137,107 +132,8 @@ class UsersController extends BaseController
     return response()->json(['roles' => $roles], 200);
     }
 
-
-
-    // STORE USER
-   
-public function store(CreateUserRequest $request)
-{
-    try {
-        // Validar y obtener los detalles de la solicitud
-        $details = $request->validated();
-       
-        // Utilizar el servicio para almacenar el usuario
-        $user = $this->userService->storeUser($details);
-        
-        return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
-    } catch (\Exception $ex) {
-        return response()->json(['message' => 'Error occurred while creating user', 'error' => $ex->getMessage()], 500);
-    }
-}
-
-
-
-   // Método para actualizar un usuario
-   public function update(CreateUserRequest $request, $uuid): JsonResponse
+    protected function getCachedData($key, $minutes, $callback)
     {
-        $updateDetails = $request->validated();
-
-        try {
-           // Utilizar el servicio para actualizar el usuario
-            $user = $this->userService->updateUser($updateDetails, $uuid);
-
-            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
-
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while updating user', 'error' => $ex->getMessage()], 500);
-        }
+        return Cache::remember($key, $minutes * 60, $callback);
     }
-
-
-    // SHOW PROFILE USER
-   public function show($uuid)
-{
-    try {
-        // Utilizar el servicio para obtener el usuario
-        $user = $this->userService->showUser($uuid);
-
-        return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
-
-    } catch (\Exception $e) {
-        // Registrar el mensaje de la excepción en el log
-        Log::error('Error occurred while fetching user: ' . $e->getMessage());
-
-        // Manejar cualquier excepción y devolver una respuesta de error
-        return response()->json(['message' => 'Error occurred while fetching user', 'error' => $e->getMessage()], 500);
-    }
-}
-
-
-
-    // USER DELETE
-
- public function destroy($uuid)
-{
-    try {
-        // Utilizar el servicio para obtener el usuario
-        $user = $this->userService->deleteUser($uuid);
-
-        return ApiResponseClass::sendResponse('User Delete Successful','',200);
-
-    } catch (\Exception $e) {
-        // Registrar el mensaje de la excepción en el log
-        Log::error('Error occurred while deleting user: ' . $e->getMessage());
-
-        // Manejar cualquier excepción y devolver una respuesta de error
-        return response()->json(['message' => 'Error occurred while deleting user', 'error' => $e->getMessage()], 500);
-    }
-}
-
-   
-
-
-// USER RESTORE
-
- public function restore($uuid)
-{
-    try {
-        // Utilizar el servicio para obtener el usuario
-        $user = $this->userService->restoreUser($uuid);
-
-            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
-
-    } catch (\Exception $e) {
-        // Registrar el mensaje de la excepción en el log
-        Log::error('Error occurred while restoring user: ' . $e->getMessage());
-
-        // Manejar cualquier excepción y devolver una respuesta de error
-        return response()->json(['message' => 'Error occurred while restoring user', 'error' => $e->getMessage()], 500);
-    }
-}
-
-
-
-
-
 }

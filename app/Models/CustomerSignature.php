@@ -20,4 +20,8 @@ class CustomerSignature extends Model
     {
         return $this->belongsTo(Customer::class);
     }
+    public function createdByUser()
+    {
+        return $this->belongsTo(User::class,'user_id_ref_by',);
+    }
 }

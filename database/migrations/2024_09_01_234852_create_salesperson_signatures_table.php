@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('signature_path');
-            $table->foreignId('seller_id')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreignId('salesperson_id')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignId('user_id_ref_by')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
             $table->timestamps();
         });

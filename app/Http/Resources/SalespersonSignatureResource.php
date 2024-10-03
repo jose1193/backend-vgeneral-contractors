@@ -17,13 +17,13 @@ class SalespersonSignatureResource extends JsonResource
     return [
         'id' => (int) $this->id,
         'uuid' => $this->uuid,
-        'seller_id' => (int) $this->seller_id,
+        'salesperson_id' => (int) $this->salesperson_id,
         // Obtener los datos del cliente relacionados
-        'seller' => $this->seller ? [
-            'id' => (int) $this->seller->id,
-            'name' => $this->seller->name, // Ajusta según los campos de tu modelo Customer
-            'last_name' => $this->seller->last_name,
-            'email' => $this->seller->email, // Ajusta según los campos de tu modelo Customer
+        'salesPerson' => $this->salesPerson ? [
+            'id' => (int) $this->salesPerson->id,
+            'name' => $this->salesPerson->name, // Ajusta según los campos de tu modelo Customer
+            'last_name' => $this->salesPerson->last_name,
+            'email' => $this->salesPerson->email, // Ajusta según los campos de tu modelo Customer
             // Añade aquí otros campos necesarios de Customer
         ] : null,
          

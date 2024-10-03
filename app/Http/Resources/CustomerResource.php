@@ -27,7 +27,15 @@ class CustomerResource extends JsonResource
              // Obtener las firmas del cliente
             'signature_customer' => $this->customerSignature ? [
             'uuid' => $this->customerSignature->uuid,
-            'signature_data' => asset($this->customerSignature->signature_data), 
+            'customer_id' => $this->customerSignature->customer_id,
+            'signature_data' => asset($this->customerSignature->signature_data),
+            'created_at' => $this->customerSignature->created_at,
+            'updated_at' => $this->customerSignature->updated_at,
+            'created_by_user' => [
+            'id' => $this->customerSignature->createdByUser->id,
+            'name' => $this->customerSignature->createdByUser->name,
+            'last_name' => $this->customerSignature->createdByUser->last_name,
+            ],
             ] : null,
             'user_id' => (int) $this->user_id,
             'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,

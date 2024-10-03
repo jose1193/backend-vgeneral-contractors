@@ -20,7 +20,7 @@ class CustomerSignatureController extends BaseController
 
     public function __construct(CustomerSignatureService $dataService)
     {
-        $this->middleware('check.permission:Super Admin')->only(['destroy']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'store', 'update']);
         $this->dataService = $dataService;
     }
 

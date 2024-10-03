@@ -16,7 +16,7 @@ class ScopeSheetController extends BaseController
     public function __construct(ScopeSheetService $serviceData)
     {
         // Middleware para permisos, ajústalo según sea necesario
-        $this->middleware('check.permission:Director Assistant')->only(['destroy']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'store', 'update']);
         
         $this->serviceData = $serviceData;
     }

@@ -21,7 +21,7 @@ class CustomerController extends BaseController
 
     public function __construct(CustomerService $customerService)
     {
-        $this->middleware('check.permission:Lead')->only(['index', 'store', 'update']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'store', 'update']);
         $this->customerService = $customerService;
     }
     

@@ -25,13 +25,10 @@ class SalespersonSignatureRequest extends FormRequest
     public function rules(): array
     {
     $rules = [
-        'seller_id' => ['required', 'integer'],
+        
         'signature_path' => ['required'],
+        'salesperson_id' => ['nullable'],
     ];
-
-    if ($this->isMethod('POST')) {
-        $rules['seller_id'][] = Rule::unique('salesperson_signatures');
-    }
 
     return $rules;
     }

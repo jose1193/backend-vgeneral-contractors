@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('address')->nullable(); 
             $table->string('website')->nullable(); 
             $table->string('signature_path'); 
+            $table->double('latitude', 10, 6)->nullable(); 
+            $table->double('longitude', 10, 6)->nullable();
             $table->foreignId('user_id')->constrained('users')->onUpdate('cascade')->onDelete('cascade');
             $table->timestamps();
         });

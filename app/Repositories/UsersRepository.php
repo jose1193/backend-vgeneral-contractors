@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\User;
 use App\Interfaces\UsersRepositoryInterface;
+use Illuminate\Database\Eloquent\Collection;
 
 class UsersRepository implements UsersRepositoryInterface
 {
@@ -12,7 +13,7 @@ class UsersRepository implements UsersRepositoryInterface
      *
      * @return \Illuminate\Database\Eloquent\Collection|static[]
      */
-    public function index()
+    public function index(): Collection
     {
         return User::withTrashed()->orderBy('id', 'DESC')->get();
     }
@@ -23,7 +24,7 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  string  $uuid
      * @return \App\Models\User
      */
-    public function getByUuid($uuid)
+    public function getByUuid(string $uuid): User
     {
         return User::where('uuid', $uuid)->firstOrFail();
     }
@@ -34,7 +35,7 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  array  $data
      * @return \App\Models\User
      */
-    public function store(array $data)
+    public function store(array $data): User
     {
         return User::create($data);
     }
@@ -46,7 +47,7 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  string  $uuid
      * @return bool
      */
-    public function update(array $data, $uuid)
+   public function update(array $data, string $uuid): User
     {
        
         $user = User::where('uuid', $uuid)->firstOrFail();
@@ -62,7 +63,7 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  string  $uuid
      * @return bool|null
      */
-    public function delete($uuid)
+    public function delete(string $uuid): bool
     {
         $user = User::where('uuid', $uuid)->firstOrFail();
        
@@ -70,7 +71,7 @@ class UsersRepository implements UsersRepositoryInterface
         return $user->delete();
     }
 
-    public function restore($uuid)
+    public function restore(string $uuid): User
     {
         
         
@@ -90,6 +91,9 @@ class UsersRepository implements UsersRepositoryInterface
          return User::role($role, 'api')->get();
     }
 
-
+    public function isSuperAdmin(int $userId): bool
+    {
+    return User::findOrFail($userId)->hasRole('Super Admin');
+    }
 
 }

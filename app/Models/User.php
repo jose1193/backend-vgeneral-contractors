@@ -21,6 +21,7 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
+        'uuid',
         'name',
         'last_name',
         'username',
@@ -29,10 +30,13 @@ class User extends Authenticatable
         'email',
         'password',
         'phone',
-        'address',    // Add the new fields here
+        'address',   
         'zip_code',
         'city',
+        'state',
         'country',
+        'latitude',
+        'longitude',
         'gender',
         'profile_photo_path',
     ];

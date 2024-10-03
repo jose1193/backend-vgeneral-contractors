@@ -22,6 +22,8 @@ class PropertyResource extends JsonResource
             'property_city' => $this->property_city,
             'property_postal_code' => $this->property_postal_code,
             'property_country' => $this->property_country,
+            'property_latitude' => $this->property_latitude,
+            'property_longitude' => $this->property_longitude,
             'customer_id' => $this->customers->isNotEmpty() ? (int) $this->customers->first()->id : null,
             'customers' => $this->customers->map(function ($customer) {
              return [

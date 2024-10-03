@@ -11,14 +11,14 @@ class SalespersonSignature extends Model
 
      protected $fillable = [
         'uuid',
-        'seller_id',
+        'salesperson_id',
         'signature_path',
         'user_id_ref_by',
     ];
 
-    public function seller()
+    public function salesPerson()
     {
-        return $this->belongsTo(User::class, 'seller_id');
+        return $this->belongsTo(User::class, 'salesperson_id');
     }
 
     public function registeredBy()

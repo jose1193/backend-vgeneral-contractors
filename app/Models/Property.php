@@ -15,6 +15,8 @@ class Property extends Model
         'property_city',
         'property_postal_code',
         'property_country',
+        'property_latitude',
+        'property_longitude'
         
     ];
 

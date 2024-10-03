@@ -18,6 +18,8 @@ class CompanySignature extends Model
         'address',
         'website',
         'user_id',
+        'latitude',
+        'longitude'
     ];
 
     public function user()

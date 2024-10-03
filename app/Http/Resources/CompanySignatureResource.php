@@ -19,6 +19,8 @@ class CompanySignatureResource extends JsonResource
             'uuid' => $this->uuid,
             'company_name' => $this->company_name,
             'address' => $this->address,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
             'phone' => $this->phone,
             'email' => $this->email,
             'website' => $this->website,

@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('property_city')->nullable();
             $table->string('property_postal_code')->nullable();
             $table->string('property_country')->nullable();
+            $table->string('property_latitude')->nullable();
+            $table->string('property_longitude')->nullable();
             $table->timestamps();
         });
     }

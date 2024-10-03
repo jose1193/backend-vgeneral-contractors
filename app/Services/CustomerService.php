@@ -187,7 +187,7 @@ class CustomerService
             if ($customer->email === $email) {
                 return [
                     'available' => true,
-                    'message' => 'This is your current email'
+                    'message' => 'Current Client Email'
                 ];
             }
 
