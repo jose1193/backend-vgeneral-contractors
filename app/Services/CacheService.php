@@ -49,4 +49,9 @@ class CacheService
             throw new \Exception('Invalid cacheKey provided');
         }
     }
+
+    public function forget(string $key): void
+    {
+        $this->invalidateCache($key);
+    }
 }

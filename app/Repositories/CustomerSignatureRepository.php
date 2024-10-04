@@ -45,7 +45,7 @@ class CustomerSignatureRepository implements CustomerSignatureRepositoryInterfac
 
     public function getSignaturesByUser($user)
     {
-        if ($user->hasPermissionTo('Director Assistant', 'api')) {
+        if ($user->hasRole('Super Admin')) {
             // Si el usuario tiene el permiso de "Director Assistant", obtiene todas las firmas
             return CustomerSignature::orderBy('id', 'DESC')->get();
         } else {

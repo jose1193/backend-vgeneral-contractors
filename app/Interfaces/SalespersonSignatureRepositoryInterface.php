@@ -23,4 +23,6 @@ interface SalespersonSignatureRepositoryInterface
     public function isSuperAdmin(int $userId): bool;
     
     public function signatureExistsForOtherSalesperson(string $sellerId, ?string $excludeUuid = null): bool;
+
+    public function getAllSuperAdmins(): Collection;
 }

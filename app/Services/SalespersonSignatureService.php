@@ -40,8 +40,10 @@ class SalespersonSignatureService
     public function storeData(SalespersonSignatureDTO $dto): SalespersonSignature
     {
         return $this->transactionService->handleTransaction(function () use ($dto) {
-            $userId = Auth::id();
             $user = Auth::user();
+            if (!$user) {
+                throw new Exception("No authenticated user found");
+            }
 
             $salespersonId = $this->getSalespersonId($user, $dto->salesPersonId);
 
@@ -54,7 +56,7 @@ class SalespersonSignatureService
             $details['signature_path'] = $signatureUrl;
             $signature = $this->repository->store($details);
 
-            $this->updateDataCache();
+            $this->updateDataCache($salespersonId);
             $this->logger->info('Salesperson signature stored successfully', ['uuid' => $signature->uuid]);
             return $signature;
         }, 'storing salesperson signature');
@@ -76,7 +78,7 @@ class SalespersonSignatureService
             $signature = $this->repository->update($updateDetails, $uuid->toString());
 
             $this->updateCache($uuid, $signature);
-            $this->updateDataCache();
+            $this->updateDataCache($signature->salesperson_id);
             
             $this->logger->info('Salesperson signature updated successfully', ['uuid' => $uuid->toString()]);
             return $signature;
@@ -95,18 +97,20 @@ class SalespersonSignatureService
             $existingSignature = $this->getExistingSignature($uuid);
             $this->validateSuperAdminPermission();
 
+            $salespersonId = $existingSignature->salesperson_id;
+
             $this->repository->delete($uuid->toString());
             $this->deleteSignatureFromS3($existingSignature);
 
             $this->invalidateCache($uuid);
-            $this->updateDataCache();
+            $this->updateDataCache($salespersonId);
 
             $this->logger->info('Salesperson signature deleted successfully', ['uuid' => $uuid->toString()]);
             return true;
         }, 'deleting salesperson signature');
     }
 
-    private function getSalespersonId(object $user, ?int $salesPersonId): int
+    private function getSalespersonId($user, ?int $salesPersonId): int
     {
         if ($user->hasRole('Salesperson')) {
             return $user->id;
@@ -117,7 +121,7 @@ class SalespersonSignatureService
         }
     }
 
-    private function validateUpdatePermission(object $user, SalespersonSignature $signature, SalespersonSignatureDTO $dto): void
+    private function validateUpdatePermission($user, SalespersonSignature $signature, SalespersonSignatureDTO $dto): void
     {
         if ($user->hasRole('Super Admin')) {
             if ($dto->salesPersonId !== null) {
@@ -146,17 +150,15 @@ class SalespersonSignatureService
     {
         $signature = $this->repository->getByUuid($uuid->toString());
         if (!$signature) {
-            throw new ModelNotFoundException("Signature not found");
+            throw new Exception("Signature not found");
         }
         return $signature;
     }
 
     private function validateSuperAdminPermission(): void
     {
-        $userId = Auth::id();
-        $isSuperAdmin = $this->repository->isSuperAdmin($userId);
-
-        if (!$isSuperAdmin) {
+        $user = Auth::user();
+        if (!$user || !$user->hasRole('Super Admin')) {
             throw new Exception("Unauthorized access. Only super admins can perform this operation.");
         }
     }
@@ -223,11 +225,21 @@ class SalespersonSignatureService
         $this->cacheService->refreshCache($cacheKey, self::CACHE_TIME, fn() => $signature);
     }
 
-    private function updateDataCache(): void
+    private function updateDataCache(int $salespersonId): void
     {
-        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
-        $this->cacheService->updateDataCache($cacheKey, self::CACHE_TIME, fn() => $this->repository->getSignaturesByUser(Auth::user()));
+        // Invalidar la caché del vendedor afectado
+        $salespersonCacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) $salespersonId);
+        $this->cacheService->forget($salespersonCacheKey);
+
+        // Invalidar la caché de todos los Super Admins
+        $superAdmins = $this->repository->getAllSuperAdmins();
+        foreach ($superAdmins as $admin) {
+            $adminCacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) $admin->id);
+            $this->cacheService->forget($adminCacheKey);
+        }
     }
+
+    
 
     private function invalidateCache(UuidInterface $uuid): void
     {

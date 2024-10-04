@@ -22,7 +22,7 @@ class SalespersonSignatureRepository implements SalespersonSignatureRepositoryIn
 
     public function getSignaturesByUser(object $user): Collection
     {
-        if ($user->hasPermissionTo('Super Admin', 'api')) {
+        if ($user->hasRole('Super Admin', 'api')) {
             return SalespersonSignature::orderBy('id', 'DESC')->get();
         } else {
             return SalespersonSignature::where('salesperson_id', $user->id)
@@ -61,6 +61,13 @@ class SalespersonSignatureRepository implements SalespersonSignatureRepositoryIn
         return User::findOrFail($userId)->hasRole('Super Admin','api');
     }
 
+    public function getAllSuperAdmins(): Collection
+    {
+        return User::whereHas('roles', function ($query) {
+            $query->where('name', 'Super Admin');
+        })->get();
+    }
+    
     public function signatureExistsForOtherSalesperson(string $salesPersonId, ?string $excludeUuid = null): bool
     {
         $query = SalespersonSignature::where('salesperson_id', $salesPersonId);

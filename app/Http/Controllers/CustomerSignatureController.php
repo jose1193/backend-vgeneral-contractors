@@ -46,7 +46,7 @@ class CustomerSignatureController extends BaseController
             $validatedData = $request->validated();
             $dto = CustomerSignatureDTO::fromArray($validatedData);
             $customerSignature = $this->dataService->storeData($dto);
-            return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customerSignature), 201);
+            return ApiResponseClass::sendSimpleResponse(new CustomerSignatureResource($customerSignature), 200);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error storing customer signature');
         }

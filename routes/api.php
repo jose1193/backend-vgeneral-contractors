@@ -408,7 +408,7 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
 
 
      // Routes related to Sales person Signature 
-    Route::prefix('sales-person-signature')->group(function () {
+    Route::prefix('salesperson-signature')->group(function () {
     Route::get('/', [SalespersonSignatureController::class, 'index']);    
     Route::post('/store', [SalespersonSignatureController::class, 'store']); 
     Route::get('/{uuid}', [SalespersonSignatureController::class, 'show']); 
