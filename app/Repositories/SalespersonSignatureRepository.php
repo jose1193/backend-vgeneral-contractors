@@ -78,4 +78,6 @@ class SalespersonSignatureRepository implements SalespersonSignatureRepositoryIn
         
         return $query->exists();
     }
+
+    
 }

@@ -3,59 +3,54 @@
 namespace App\Repositories;
 
 use App\Models\CustomerSignature;
-
+use App\Models\User;
 use App\Interfaces\CustomerSignatureRepositoryInterface;
-
 
 class CustomerSignatureRepository implements CustomerSignatureRepositoryInterface
 {
-    /**
-     * Create a new class instance.
-     */
     public function index()
     {
         return CustomerSignature::orderBy('id', 'DESC')->get();
     }
 
-    
     public function getByUuid(string $uuid)
     {
         return CustomerSignature::where('uuid', $uuid)->firstOrFail();
     }
 
-     public function store(array $data)
+    public function store(array $data)
     {
         return CustomerSignature::create($data);
     }
 
-     public function update(array $data, string $uuid)
-{
-    $claim = CustomerSignature::where('uuid', $uuid)->firstOrFail();
-    $claim->update($data);
-    return $claim;
-}
-
+    public function update(array $data, string $uuid)
+    {
+        $signature = CustomerSignature::where('uuid', $uuid)->firstOrFail();
+        $signature->update($data);
+        return $signature;
+    }
 
     public function delete(string $uuid)
     {
-        $claim = CustomerSignature::where('uuid', $uuid)->firstOrFail();
-        $claim->delete();
-        return $claim;
+        $signature = CustomerSignature::where('uuid', $uuid)->firstOrFail();
+        $signature->delete();
+        return $signature;
     }
 
-    public function getSignaturesByUser($user)
+    public function getAllSignatures()
     {
-        if ($user->hasRole('Super Admin')) {
-            // Si el usuario tiene el permiso de "Director Assistant", obtiene todas las firmas
-            return CustomerSignature::orderBy('id', 'DESC')->get();
-        } else {
-            // De lo contrario, obtiene solo las firmas asociadas a los reclamos del usuario
-            return CustomerSignature::where('user_id_ref_by', $user->id)
+        return CustomerSignature::orderBy('id', 'DESC')->get();
+    }
+
+    public function getSignaturesByUserId(int $userId)
+    {
+        return CustomerSignature::where('user_id_ref_by', $userId)
             ->orderBy('id', 'DESC')
             ->get();
-        }
     }
-    
 
-
+    public function isSuperAdmin(User $user): bool
+    {
+        return $user->hasRole('Super Admin');
+    }
 }

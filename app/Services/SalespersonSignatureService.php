@@ -6,8 +6,11 @@ namespace App\Services;
 
 use App\Interfaces\SalespersonSignatureRepositoryInterface;
 use App\DTOs\SalespersonSignatureDTO;
+use App\Exceptions\UnauthorizedException;
+use App\Exceptions\SignatureAlreadyExistsException;
+use App\Exceptions\SignatureNotFoundException;
 use Exception;
-use App\Models\SalespersonSignature;
+
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Illuminate\Support\Facades\Auth;
@@ -38,28 +41,24 @@ class SalespersonSignatureService
         );
     }
 
-    public function storeData(SalespersonSignatureDTO $dto): SalespersonSignature
+    public function storeData(SalespersonSignatureDTO $dto): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto) {
             $user = $this->getAuthenticatedUser();
             $salespersonId = $this->getSalespersonId($user, $dto->salesPersonId);
 
-            if ($this->repository->getBySalespersonId($salespersonId)) {
-                throw new Exception("A signature already exists for this salesperson. Use updateData to modify it.");
-            }
+            $this->ensureSignatureDoesNotExist($salespersonId);
 
             $details = $this->prepareSignatureDetails($dto, $salespersonId);
-            $signatureUrl = $this->s3SignatureService->storeSignature($details['signature_path'], self::SIGNATURE_S3_PATH);
-            $details['signature_path'] = $signatureUrl;
-            $signature = $this->repository->store($details);
+            $signature = $this->createSignature($details);
 
-            $this->updateCaches($salespersonId, $signature->uuid);
+            $this->updateCaches($salespersonId, Uuid::fromString($signature->uuid));
             $this->logger->info('Salesperson signature stored successfully', ['uuid' => $signature->uuid]);
             return $signature;
         }, 'storing salesperson signature');
     }
 
-    public function updateData(SalespersonSignatureDTO $dto, UuidInterface $uuid): SalespersonSignature
+    public function updateData(SalespersonSignatureDTO $dto, UuidInterface $uuid): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
             $user = $this->getAuthenticatedUser();
@@ -102,11 +101,11 @@ class SalespersonSignatureService
         }, 'deleting salesperson signature');
     }
 
-    private function getAuthenticatedUser(): ?\App\Models\User
+    private function getAuthenticatedUser()
     {
         $user = Auth::user();
         if (!$user) {
-            throw new Exception("No authenticated user found");
+            throw new UnauthorizedException("No authenticated user found");
         }
         return $user;
     }
@@ -115,25 +114,21 @@ class SalespersonSignatureService
     {
         if ($user->hasRole('Salesperson')) {
             return $user->id;
-        } elseif ($user->hasRole('Super Admin') && $salesPersonId !== null) {
+        } elseif ($this->repository->isSuperAdmin($user->id) && $salesPersonId !== null) {
             return $salesPersonId;
-        } else {
-            throw new Exception("Unauthorized or invalid salesperson ID");
         }
+        throw new UnauthorizedException("Unauthorized or invalid salesperson ID");
     }
-
-    private function validateUpdatePermission($user, SalespersonSignature $signature, SalespersonSignatureDTO $dto): void
+    private function validateUpdatePermission($user, object $signature, SalespersonSignatureDTO $dto): void
     {
-        if ($user->hasRole('Super Admin')) {
-            if ($dto->salesPersonId !== null) {
-                $signature->salesperson_id = $dto->salesPersonId;
-            }
+        if ($this->repository->isSuperAdmin($user->id)) {
+            $signature->salesperson_id = $dto->salesPersonId ?? $signature->salesperson_id;
         } elseif ($user->hasRole('Salesperson')) {
             if ($signature->salesperson_id !== $user->id) {
-                throw new Exception("You don't have permission to update this signature.");
+                throw new UnauthorizedException("You don't have permission to update this signature.");
             }
         } else {
-            throw new Exception("You don't have permission to update signatures.");
+            throw new UnauthorizedException("You don't have permission to update signatures.");
         }
     }
 
@@ -147,11 +142,11 @@ class SalespersonSignatureService
         ];
     }
 
-    private function getExistingSignature(UuidInterface $uuid): SalespersonSignature
+    private function getExistingSignature(UuidInterface $uuid): object
     {
         $signature = $this->repository->getByUuid($uuid->toString());
         if (!$signature) {
-            throw new Exception("Signature not found");
+            throw new SignatureNotFoundException("Signature not found");
         }
         return $signature;
     }
@@ -159,19 +154,19 @@ class SalespersonSignatureService
     private function validateSuperAdminPermission(): void
     {
         $user = Auth::user();
-        if (!$user || !$user->hasRole('Super Admin')) {
-            throw new Exception("Unauthorized access. Only super admins can perform this operation.");
+        if (!$user || !$this->repository->isSuperAdmin(Auth::id())) {
+            throw new UnauthorizedException("Unauthorized access. Only super admins can perform this operation.");
         }
     }
 
-    private function prepareUpdateDetails(SalespersonSignatureDTO $dto, UuidInterface $uuid, SalespersonSignature $existingSignature): array
+    private function prepareUpdateDetails(SalespersonSignatureDTO $dto, UuidInterface $uuid, object $existingSignature): array
     {
         $updateDetails = [
             'uuid' => $uuid->toString(),
             'user_id_ref_by' => Auth::id(),
         ];
 
-        if (Auth::user()->hasRole('Super Admin') && $dto->salesPersonId !== null) {
+        if ($this->repository->isSuperAdmin(Auth::id()) && $dto->salesPersonId !== null) {
             $updateDetails['salesperson_id'] = $dto->salesPersonId;
         }
 
@@ -182,7 +177,7 @@ class SalespersonSignatureService
         return $updateDetails;
     }
 
-    private function handleSignaturePathUpdate(string $newSignaturePath, SalespersonSignature $existingSignature): string
+    private function handleSignaturePathUpdate(string $newSignaturePath, object $existingSignature): string
     {
         return $this->isValidUrl($newSignaturePath)
             ? $existingSignature->signature_path
@@ -199,5 +194,19 @@ class SalespersonSignatureService
         $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $salespersonId);
         $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_SIGNATURE, $uuid->toString());
         $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
+    }
+
+    private function ensureSignatureDoesNotExist(int $salespersonId): void
+    {
+        if ($this->repository->getBySalespersonId($salespersonId)) {
+            throw new SignatureAlreadyExistsException("A signature already exists for this salesperson. Use updateData to modify it.");
+        }
+    }
+
+    private function createSignature(array $details): object
+    {
+        $signatureUrl = $this->s3SignatureService->storeSignature($details['signature_path'], self::SIGNATURE_S3_PATH);
+        $details['signature_path'] = $signatureUrl;
+        return $this->repository->store($details);
     }
 }
