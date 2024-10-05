@@ -7,8 +7,10 @@ namespace App\Services;
 use App\Interfaces\CompanySignatureRepositoryInterface;
 use App\Interfaces\S3ServiceInterface;
 use App\Interfaces\TransactionServiceInterface;
-use App\Interfaces\CacheServiceInterface;
 use App\DTOs\CompanySignatureDTO;
+use App\Exceptions\UnauthorizedException;
+use App\Exceptions\SignatureAlreadyExistsException;
+use App\Exceptions\SignatureNotFoundException;
 use Exception;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
@@ -21,37 +23,40 @@ class CompanySignatureService
 {
     private const CACHE_TIME = 720; // minutes
     private const CACHE_KEY_LIST = 'company_signatures_user_list_';
+    private const CACHE_KEY_SIGNATURE = 'company_signature_';
     private const SIGNATURE_S3_PATH = 'public/company_signatures';
 
     public function __construct(
         private readonly CompanySignatureRepositoryInterface $repository,
         private readonly S3Service $s3Service,
         private readonly TransactionService $transactionService,
-        private readonly CacheService $cacheService,
+        private readonly UserCacheService $userCacheService,
         private readonly LoggerInterface $logger
     ) {}
 
     public function all(): Collection
     {   
-       $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
-        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->index());
+        return $this->userCacheService->getCachedUserList(
+            self::CACHE_KEY_LIST,
+            Auth::id(),
+            fn() => $this->repository->index()
+        );
     }
 
     public function storeData(CompanySignatureDTO $dto): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto) {
-            $this->validateNoExistingSignature();
+            $this->ensureSignatureDoesNotExist();
             $details = $this->prepareSignatureDetails($dto);
-            $signatureUrl = $this->storeSignatureInS3($details['signature_path']);
-            $details['signature_path'] = $signatureUrl;
-            $signature = $this->repository->store($details);
-            $this->updateDataCache();
-            //$this->logger->info('Company signature stored successfully', ['uuid' => $signature->uuid]);
+            $signature = $this->createSignature($details);
+            
+            $this->updateCaches(Auth::id(), Uuid::fromString($signature->uuid));
+            $this->logger->info('Company signature stored successfully', ['uuid' => $signature->uuid]);
             return $signature;
         }, 'storing company signature');
     }
 
-    public function updateData(CompanySignatureDTO $dto, UuidInterface $uuid): ?object
+    public function updateData(CompanySignatureDTO $dto, UuidInterface $uuid): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
             $existingSignature = $this->getExistingSignature($uuid);
@@ -60,18 +65,20 @@ class CompanySignatureService
             $updateDetails = $this->prepareUpdateDetails($dto, $uuid, $existingSignature);
             $signature = $this->repository->update($updateDetails, $uuid->toString());
 
-            $this->updateCache($uuid, $signature);
-            $this->updateDataCache();
+            $this->updateCaches($signature->user_id, $uuid);
             
-            //$this->logger->info('Company signature updated successfully', ['uuid' => $uuid->toString()]);
+            $this->logger->info('Company signature updated successfully', ['uuid' => $uuid->toString()]);
             return $signature;
         }, 'updating company signature');
     }
 
     public function showData(UuidInterface $uuid): ?object
     {
-        $cacheKey = $this->generateCacheKey('company_signature_', $uuid->toString());
-        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByUuid($uuid->toString()));
+        return $this->userCacheService->getCachedItem(
+            self::CACHE_KEY_SIGNATURE,
+            $uuid->toString(),
+            fn() => $this->repository->getByUuid($uuid->toString())
+        );
     }
 
     public function deleteData(UuidInterface $uuid): bool
@@ -83,10 +90,9 @@ class CompanySignatureService
             $this->repository->delete($uuid->toString());
             $this->deleteSignatureFromS3($existingSignature);
 
-            $this->invalidateCache($uuid);
-            $this->updateDataCache();
+            $this->updateCaches($existingSignature->user_id, $uuid);
 
-            //$this->logger->info('Company signature deleted successfully', ['uuid' => $uuid->toString()]);
+            $this->logger->info('Company signature deleted successfully', ['uuid' => $uuid->toString()]);
             return true;
         }, 'deleting company signature');
     }
@@ -95,17 +101,16 @@ class CompanySignatureService
     {
         return $this->transactionService->handleTransaction(function () use ($uuid) {
             $signature = $this->repository->restore($uuid->toString());
-            $this->invalidateCache($uuid);
-            $this->updateDataCache();
+            $this->updateCaches($signature->user_id, $uuid);
             $this->logger->info('Company signature restored successfully', ['uuid' => $uuid->toString()]);
             return $signature;
         }, 'restoring company signature');
     }
 
-    private function validateNoExistingSignature(): void
+    private function ensureSignatureDoesNotExist(): void
     {
         if ($this->repository->findFirst()) {
-            throw new Exception('A company signature already exists.');
+            throw new SignatureAlreadyExistsException("A company signature already exists. Use updateData to modify it.");
         }
     }
 
@@ -118,21 +123,18 @@ class CompanySignatureService
         ];
     }
 
-    private function storeSignatureInS3(string $signaturePath): string
+    private function createSignature(array $details): object
     {
-        try {
-            return $this->s3Service->storeSignatureInS3($signaturePath, self::SIGNATURE_S3_PATH);
-        } catch (\Exception $e) {
-            $this->logger->error('Failed to store signature in S3', ['error' => $e->getMessage()]);
-            throw $e;
-        }
+        $signatureUrl = $this->s3Service->storeSignatureInS3($details['signature_path'], self::SIGNATURE_S3_PATH);
+        $details['signature_path'] = $signatureUrl;
+        return $this->repository->store($details);
     }
 
     private function getExistingSignature(UuidInterface $uuid): object
     {
         $signature = $this->repository->getByUuid($uuid->toString());
         if (!$signature) {
-            throw new Exception("Signature not found");
+            throw new SignatureNotFoundException("Signature not found");
         }
         return $signature;
     }
@@ -140,38 +142,36 @@ class CompanySignatureService
     private function validateUserPermission(object $signature): void
     {
         if ($signature->user_id !== Auth::id()) {
-            throw new Exception("No permission to perform this operation.");
+            throw new UnauthorizedException("No permission to perform this operation.");
         }
     }
 
-        private function prepareUpdateDetails(CompanySignatureDTO $dto, UuidInterface $uuid, object $existingSignature): array
+    private function prepareUpdateDetails(CompanySignatureDTO $dto, UuidInterface $uuid, object $existingSignature): array
     {
         $updateDetails = [
-        'uuid' => $uuid->toString(),
-        'user_id' => Auth::id(),
+            'uuid' => $uuid->toString(),
+            'user_id' => Auth::id(),
         ];
 
         $fields = ['companyName', 'phone', 'email', 'address', 'website'];
         foreach ($fields as $field) {
-        if ($dto->$field !== null) {
-            $updateDetails[Str::snake($field)] = $dto->$field;
-        }
+            if ($dto->$field !== null) {
+                $updateDetails[Str::snake($field)] = $dto->$field;
+            }
         }
 
         if ($dto->signaturePath !== null) {
-        $updateDetails['signature_path'] = $this->handleSignaturePathUpdate($dto->signaturePath, $existingSignature);
+            $updateDetails['signature_path'] = $this->handleSignaturePathUpdate($dto->signaturePath, $existingSignature);
         }
 
         return $updateDetails;
     }
 
-
     private function handleSignaturePathUpdate(string $newSignaturePath, object $existingSignature): string
     {
-        if ($this->isValidUrl($newSignaturePath)) {
-            return $existingSignature->signature_path;
-        }
-        return $this->replaceSignatureInS3($existingSignature, $newSignaturePath);
+        return $this->isValidUrl($newSignaturePath)
+            ? $existingSignature->signature_path
+            : $this->replaceSignatureInS3($existingSignature, $newSignaturePath);
     }
 
     private function isValidUrl(string $url): bool
@@ -204,26 +204,10 @@ class CompanySignatureService
         }
     }
 
-    private function updateCache(UuidInterface $uuid, object $signature): void
+    private function updateCaches(int $userId, UuidInterface $uuid): void
     {
-        $cacheKey = $this->generateCacheKey('company_signature_', $uuid->toString());
-        $this->cacheService->refreshCache($cacheKey, self::CACHE_TIME, fn() => $signature);
-    }
-
-    private function updateDataCache(): void
-    {
-        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
-
-        $this->cacheService->updateDataCache($cacheKey, self::CACHE_TIME, fn() => $this->repository->index());
-    }
-
-    private function invalidateCache(UuidInterface $uuid): void
-    {
-        $this->cacheService->invalidateCache($this->generateCacheKey('company_signature_', $uuid->toString()));
-    }
-
-    private function generateCacheKey(string $prefix, string $suffix): string
-    {
-        return $prefix . $suffix;
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_SIGNATURE, $uuid->toString());
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
     }
 }

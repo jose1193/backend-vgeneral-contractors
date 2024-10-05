@@ -32,7 +32,7 @@ class CompanySignatureRequest extends FormRequest
             'email' => $this->getFieldRules('email', 255),
             'phone' => $this->getFieldRules('string', 20),
             'address' => $this->getFieldRules('string', 255),
-            'website' => $this->getFieldRules('url', null, true),
+            'website' => $this->getFieldRules('string', 255,),
         ];
     }
 
