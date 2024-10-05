@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Interfaces;
+use Illuminate\Database\Eloquent\Collection;
 
 interface UsersRepositoryInterface
 {
@@ -12,4 +13,6 @@ interface UsersRepositoryInterface
     public function restore(string $uuid);
     public function getByRole(string $role);
     public function isSuperAdmin(int $userId): bool;
+
+    public function getAllSuperAdmins(): Collection;
 }

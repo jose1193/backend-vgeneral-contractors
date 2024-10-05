@@ -18,4 +18,5 @@ interface CustomerRepositoryInterface
     
     public function emailExists(string $email): bool;
     
+    public function getAllSuperAdmins(): Collection;
 }

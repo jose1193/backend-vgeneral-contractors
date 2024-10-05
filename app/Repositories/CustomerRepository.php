@@ -32,6 +32,13 @@ class CustomerRepository implements CustomerRepositoryInterface
     }
     }
 
+    public function getAllSuperAdmins(): Collection
+    {
+        return User::whereHas('roles', function ($query) {
+            $query->where('name', 'Super Admin');
+        })->get();
+    }
+    
     public function store(array $data): Customer
     {
         return Customer::create($data);

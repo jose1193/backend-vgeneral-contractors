@@ -96,4 +96,10 @@ class UsersRepository implements UsersRepositoryInterface
     return User::findOrFail($userId)->hasRole('Super Admin');
     }
 
+    public function getAllSuperAdmins(): Collection
+    {
+        return User::whereHas('roles', function ($query) {
+            $query->where('name', 'Super Admin');
+        })->get();
+    }
 }
