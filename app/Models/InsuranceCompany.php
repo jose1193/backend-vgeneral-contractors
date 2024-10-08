@@ -26,4 +26,9 @@ class InsuranceCompany extends Model
     {
         return $this->hasMany(InsuranceCompanyAssignment::class);
     }
+
+    public function alliances()
+    {
+        return $this->belongsToMany(AllianceCompany::class, 'alliance_prohibited_insurances', 'insurance_company_id', 'alliance_company_id');
+    }
 }

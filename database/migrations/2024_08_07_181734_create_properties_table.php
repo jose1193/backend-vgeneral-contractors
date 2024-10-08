@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('uuid')->unique();
             $table->string('property_address');
+            $table->string('property_address_2');
             $table->string('property_state')->nullable();
             $table->string('property_city')->nullable();
             $table->string('property_postal_code')->nullable();

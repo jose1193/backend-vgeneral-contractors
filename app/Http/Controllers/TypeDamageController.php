@@ -1,29 +1,27 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Routing\Controller as BaseController;
 
+use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Http\JsonResponse;
 use App\Classes\ApiResponseClass;
 use App\Http\Requests\TypeDamageRequest;
 use App\Http\Resources\TypeDamageResource;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Response;
-use Illuminate\Http\JsonResponse;
-
 use App\Services\TypeDamageService;
+use App\Traits\HandlesApiErrors;
+use App\DTOs\TypeDamageDTO;
+use Ramsey\Uuid\Uuid;
 
 class TypeDamageController extends BaseController
 {
-    protected $cacheTime = 720;
-    protected $typeDamageService;
+    use HandlesApiErrors;
 
-    public function __construct(TypeDamageService $typeDamageService)
+    protected $dataService;
+
+    public function __construct(TypeDamageService $dataService)
     {
-        // Middleware para permisos
-        $this->middleware('check.permission:Super Admin')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
-        
-        $this->typeDamageService = $typeDamageService;
+        $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'show', 'update', 'destroy']);
+        $this->dataService = $dataService;
     }
 
     /**
@@ -32,24 +30,10 @@ class TypeDamageController extends BaseController
     public function index(): JsonResponse
     {
         try {
-            // Obtener todos los type damages usando el servicio
-            $damages = $this->typeDamageService->all();
-
-            if ($damages === null) {
-                return response()->json(['message' => 'No type damage found or invalid data structure'], 404);
-            }
-
-            return ApiResponseClass::sendResponse(TypeDamageResource::collection($damages), 200);
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching Type Damages: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            return response()->json(['message' => 'Database error occurred while fetching Type Damages'], 500);
+            $typeDamages = $this->dataService->all();
+            return ApiResponseClass::sendResponse(TypeDamageResource::collection($typeDamages), 200);
         } catch (\Exception $e) {
-            Log::error('Error occurred while fetching Type Damages: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            return response()->json(['message' => 'Error occurred while fetching Type Damages'], 500);
+            return $this->handleError($e, 'Error retrieving type damages');
         }
     }
 
@@ -59,15 +43,14 @@ class TypeDamageController extends BaseController
     public function store(TypeDamageRequest $request): JsonResponse
     {
         try {
-            // Validar y obtener los detalles de la solicitud
-            $details = $request->validated();
+            $validatedData = $request->validated();
+            $dto = TypeDamageDTO::fromArray($validatedData);
             
-            // Utilizar el servicio para almacenar el type damage
-            $damage = $this->typeDamageService->storeTypeDamage($details);
-
-            return ApiResponseClass::sendSimpleResponse(new TypeDamageResource($damage), 200);
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while creating Type Damages', 'error' => $ex->getMessage()], 500);
+            $typeDamage = $this->dataService->storeData($dto);
+            
+            return ApiResponseClass::sendSimpleResponse(new TypeDamageResource($typeDamage), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error storing type damage');
         }
     }
 
@@ -77,15 +60,13 @@ class TypeDamageController extends BaseController
     public function show(string $uuid): JsonResponse
     {
         try {
-            $damage = $this->typeDamageService->showTypeDamage($uuid);
-
-            if ($damage === null) {
-                return response()->json(['message' => 'Type Damage not found'], 404);
-            }
-
-            return ApiResponseClass::sendSimpleResponse(new TypeDamageResource($damage), 200);
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while retrieving Type Damage', 'error' => $ex->getMessage()], 500);
+            $uuidObject = Uuid::fromString($uuid);
+            $typeDamage = $this->dataService->showData($uuidObject);
+            return ApiResponseClass::sendSimpleResponse(new TypeDamageResource($typeDamage), 200);
+        } catch (\Ramsey\Uuid\Exception\InvalidUuidStringException $e) {
+            return $this->handleError($e, 'Invalid UUID format');
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error retrieving type damage');
         }
     }
 
@@ -95,15 +76,12 @@ class TypeDamageController extends BaseController
     public function update(TypeDamageRequest $request, string $uuid): JsonResponse
     {
         try {
-            // Validar y obtener los detalles de la solicitud
-            $details = $request->validated();
-
-            // Utilizar el servicio para actualizar el type damage
-            $damage = $this->typeDamageService->updateTypeDamage($details, $uuid);
-
-            return ApiResponseClass::sendSimpleResponse(new TypeDamageResource($damage), 200);
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while updating Type Damage', 'error' => $ex->getMessage()], 500);
+            $uuidObject = Uuid::fromString($uuid);
+            $dto = TypeDamageDTO::fromArray($request->validated()); 
+            $typeDamage = $this->dataService->updateData($dto, $uuidObject); 
+            return ApiResponseClass::sendSimpleResponse(new TypeDamageResource($typeDamage), 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error updating type damage');
         }
     }
 
@@ -113,15 +91,11 @@ class TypeDamageController extends BaseController
     public function destroy(string $uuid): JsonResponse
     {
         try {
-            $damage = $this->typeDamageService->deleteTypeDamage($uuid);
-
-            if ($damage === null) {
-                return response()->json(['message' => 'Type Damage not found'], 404);
-            }
-
-            return response()->json(['message' => 'Type Damage deleted successfully'], 200);
-        } catch (\Exception $ex) {
-            return response()->json(['message' => 'Error occurred while deleting Type Damage', 'error' => $ex->getMessage()], 500);
+            $uuidObject = Uuid::fromString($uuid);
+            $this->dataService->deleteData($uuidObject);
+            return ApiResponseClass::sendResponse('Type damage deleted successfully', '', 200);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Error deleting type damage');
         }
     }
 }

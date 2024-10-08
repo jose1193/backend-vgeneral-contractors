@@ -35,5 +35,8 @@ class AllianceCompany extends Model
         return $this->hasMany(DocumentTemplateAlliance::class, 'uploaded_by');
     }
 
-    
+    public function prohibitedInsurances()
+    {
+        return $this->belongsToMany(InsuranceCompany::class, 'alliance_prohibited_insurances', 'insurance_company_id', 'alliance_company_id');
+    }
 }

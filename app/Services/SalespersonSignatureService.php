@@ -105,7 +105,7 @@ class SalespersonSignatureService
     {
         $user = Auth::user();
         if (!$user) {
-            throw new UnauthorizedException("No authenticated user found");
+            throw new Exception("No authenticated user found");
         }
         return $user;
     }

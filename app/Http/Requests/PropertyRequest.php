@@ -33,6 +33,7 @@ class PropertyRequest extends FormRequest
 
     return [
         'property_address' => $isStoreRoute ? 'required|string|max:255' : 'nullable|string|max:255',
+        'property_address_2' => 'nullable|string|max:255',
         'property_state' => 'nullable|string|max:255',
         'property_city' => 'nullable|string|max:255',
         'property_postal_code' => 'nullable|string|max:255',

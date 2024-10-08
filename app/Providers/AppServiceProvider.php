@@ -33,7 +33,8 @@ use App\Repositories\ScopeSheetExportRepository;
 use App\Repositories\ServiceRequestRepository;
 use App\Repositories\SalespersonSignatureRepository;
 use App\Repositories\DocuSignRepository;
-
+use App\Repositories\CauseOfLossRepository;
+use App\Repositories\ClaimStatusRepository;
 
 use App\Interfaces\TypeDamageRepositoryInterface;
 use App\Interfaces\UsersRepositoryInterface;
@@ -64,6 +65,8 @@ use App\Interfaces\ScopeSheetExportRepositoryInterface;
 use App\Interfaces\ServiceRequestRepositoryInterface;
 use App\Interfaces\SalespersonSignatureRepositoryInterface;
 use App\Interfaces\DocuSignRepositoryInterface;
+use App\Interfaces\CauseOfLossRepositoryInterface;
+use App\Interfaces\ClaimStatusRepositoryInterface;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -104,7 +107,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ServiceRequestRepositoryInterface::class,ServiceRequestRepository::class);
         $this->app->bind(SalespersonSignatureRepositoryInterface::class, SalespersonSignatureRepository::class);
         $this->app->bind(DocuSignRepositoryInterface::class, DocuSignRepository::class);
-    
+        $this->app->bind(CauseOfLossRepositoryInterface::class, CauseOfLossRepository::class);
+        $this->app->bind(ClaimStatusRepositoryInterface::class, ClaimStatusRepository::class);
     }
 
     /**

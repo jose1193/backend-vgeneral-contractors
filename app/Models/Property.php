@@ -11,6 +11,7 @@ class Property extends Model
     protected $fillable = [
         'uuid',
         'property_address',
+        'property_address_2',
         'property_state',
         'property_city',
         'property_postal_code',

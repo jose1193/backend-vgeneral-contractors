@@ -15,7 +15,7 @@ class Claim extends Model
         'uuid', 'property_id', 'signature_path_id', 'claim_internal_id',
         'policy_number', 'date_of_loss', 'user_id_ref_by', 'number_of_floors',
         'claim_date', 'type_damage_id', 'claim_status', 'damage_description','claim_number','work_date','scope_of_work',
-        'customer_reviewed','description_of_loss'
+        'customer_reviewed',
     ];
 
     
@@ -75,7 +75,6 @@ class Claim extends Model
                     ->withPivot('assignment_date'); 
     }
 
-
      public function customerSignatures()
     {
         return $this->hasMany(ClaimCustomerSignature::class);
@@ -105,4 +104,15 @@ class Claim extends Model
     {
         return $this->hasOne(AffidavitForm::class, 'claim_id');
     }
+
+    public function claimStatu()
+    {
+        return $this->belongsTo(ClaimStatu::class, 'claim_status');
+    }
+
+    public function causesOfLoss()
+    {
+        return $this->belongsToMany(CauseOfLoss::class, 'claim_cause_of_loss', 'claim_id', 'cause_of_loss_id');
+    }
+    
 }

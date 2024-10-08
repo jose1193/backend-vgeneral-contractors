@@ -18,6 +18,7 @@ class PropertyResource extends JsonResource
             'id' => (int) $this->id,
             'uuid' => $this->uuid,
             'property_address' => $this->property_address,
+            'property_address_2' => $this->property_address_2,
             'property_state' => $this->property_state,
             'property_city' => $this->property_city,
             'property_postal_code' => $this->property_postal_code,

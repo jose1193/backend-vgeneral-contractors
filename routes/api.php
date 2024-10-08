@@ -45,9 +45,9 @@ use App\Http\Controllers\ScopeSheetExportController;
 use App\Http\Controllers\ServiceRequestController;
 use App\Http\Controllers\SalespersonSignatureController;
 use App\Http\Controllers\AllianceCompanyController;
-
+use App\Http\Controllers\CauseOfLossController;
 use App\Http\Controllers\DocuSignController;
-
+use App\Http\Controllers\ClaimStatusController;
 
 
 //Route::get('/user', function (Request $request) {
@@ -431,7 +431,25 @@ Route::middleware(['auth:sanctum','handle.notfound'])->group(function() {
     Route::get('/all-documents', [DocuSignController::class, 'allDocuments']); 
 
     });
+    // Routes related to Cause Of Losses
+    Route::prefix('cause-of-losses')->group(function () {
+    Route::get('/', [CauseOfLossController::class, 'index']);    
+    Route::post('/store', [CauseOfLossController::class, 'store']); 
+    Route::get('/{uuid}', [CauseOfLossController::class, 'show']); 
+    Route::put('/update/{uuid}', [CauseOfLossController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [CauseOfLossController::class, 'destroy']);
 
+    });
+
+    // Routes related to Claim Status
+    Route::prefix('claim-status')->group(function () {
+    Route::get('/', [ClaimStatusController::class, 'index']);    
+    Route::post('/store', [ClaimStatusController::class, 'store']); 
+    Route::get('/{uuid}', [ClaimStatusController::class, 'show']); 
+    Route::put('/update/{uuid}', [ClaimStatusController::class, 'update']); 
+    Route::delete('/delete/{uuid}', [ClaimStatusController::class, 'destroy']);
+
+    });
 
 });
     

@@ -63,7 +63,7 @@ class ClaimService
     }
 
 
-    public function storeData(array $details, array $technicalIds, array $serviceRequestIds)
+    public function storeData(array $details, array $technicalIds, array $serviceRequestIds, array $causeOfLoss)
     {
         DB::beginTransaction();
     
@@ -73,7 +73,7 @@ class ClaimService
         // Asignar el user_id_ref_by al ID proporcionado o al del usuario autenticado si no se envía
         $details['user_id_ref_by'] = $details['user_id_ref_by'] ?? Auth::id();
         $details['claim_date'] = now();
-        $details['claim_status'] = "In Progress";
+        $details['claim_status'] = 1;
         $year = date('Y');
         
         // Obtener el último claim del año actual
@@ -102,6 +102,12 @@ class ClaimService
         // Crear el claim en la base de datos
         $claim = $this->claimRepositoryInterface->store($details);
         
+        
+        $claim->causesOfLoss()->attach($causeOfLoss, [
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         if (!$claim) {
             throw new Exception('Claim not created');
         }
@@ -152,7 +158,7 @@ class ClaimService
 
 
 
-   public function updateData(array $updateDetails, string $uuid, array $technicalIds, array $serviceRequestIds)
+   public function updateData(array $updateDetails, string $uuid, array $technicalIds, array $serviceRequestIds, array $causeOfLoss)
     {
     DB::beginTransaction();
 
@@ -186,6 +192,10 @@ class ClaimService
                         'updated_at' => now(),
                     ]);
 
+        $existingClaim->causesOfLoss()->sync($causeOfLoss, [
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
         // Actualizar la caché de datos
         $this->updateDataCache();
         DB::commit();
@@ -226,6 +236,11 @@ class ClaimService
             //if (!$existingClaim || $existingClaim->user_id !== Auth::id()) {
                 //throw new Exception('No permission to delete this claim or claim not found.');
             //}
+
+            //$associatedCauseOfLoss = $existingClaim->causesOfLoss()->get();
+
+            // Desvincular todas las alianzas asociadas
+            //$existingClaim->causesOfLoss()->detach($associatedCauseOfLoss->pluck('id')->toArray());
 
             $data = $this->claimRepositoryInterface->delete($uuid);
 

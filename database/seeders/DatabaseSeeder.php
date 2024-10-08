@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\TypeDamage;
+use App\Models\CauseOfLoss;
+use App\Models\ClaimStatu;
 use App\Models\InsuranceCompany;
 use App\Models\PublicCompany;
 use App\Models\CategoryProduct;
@@ -808,7 +810,9 @@ $spectatorUser->assignRole($spectatorRole);
             'Mold Remediation',
             'Plumbing',
             'Post-Storm',
-            'Inspection Tarp'
+            'Inspection Tarp',
+            'Mitigation & Tarp',
+            'Other',
         ];
 
         foreach ($typeDamages as $damage) {
@@ -2683,6 +2687,8 @@ $categoriesproducts = [
             'INSPECTION TARP',
             'RETARP',
             'REPAIR',
+            'MITIGATION & TARP',
+            'OTHER',
         ];
 
         // Recorrer y crear registros en la tabla service_requests
@@ -2693,6 +2699,72 @@ $categoriesproducts = [
             ]);
         }
         // END SERVICE REQUEST
+
+         //CAUSE OF LOSS
+     
+        $causeOfLosses = [
+            'Hail',
+            'Wind',
+            'Hail & Wind',
+            'Hurricane Wind',
+            'Hurricane Flood',
+            'Flood',
+            'Fire',
+            'Smoke',
+            'Fire & Smoke',
+            'Fallen Tree',
+            'Lightning',
+            'Tornado',
+            'Vandalism',
+            'Marine',
+            'Water',
+            'Other'
+        ];
+        // Crear cada registro en la base de datos
+        foreach ($causeOfLosses as $cause) {
+            CauseOfLoss::create([
+                'uuid' => Uuid::uuid4()->toString(),
+                'cause_loss_name' => $cause,
+                'description' => 'Descripción de ' . $cause,
+                'severity' => 'low' 
+            ]);
+        }
+        // END CAUSE OF LOSS
+
+         // CLAIM STATUS
+        $claimStatuses = [
+            ['name' => 'New', 'color' => '#4CAF50'],
+            ['name' => 'Initial Review', 'color' => '#2196F3'],
+            ['name' => 'Additional Information Required', 'color' => '#FFC107'],
+            ['name' => 'Awaiting Documentation', 'color' => '#FF9800'],
+            ['name' => 'Under Investigation', 'color' => '#9C27B0'],
+            ['name' => 'Medical Evaluation', 'color' => '#00BCD4'],
+            ['name' => 'In Negotiation', 'color' => '#795548'],
+            ['name' => 'Partially Approved', 'color' => '#8BC34A'],
+            ['name' => 'Approved', 'color' => '#4CAF50'],
+            ['name' => 'Payment Processing', 'color' => '#009688'],
+            ['name' => 'Paid', 'color' => '#3F51B5'],
+            ['name' => 'Rejected', 'color' => '#F44336'],
+            ['name' => 'Under Appeal', 'color' => '#FF5722'],
+            ['name' => 'Closed', 'color' => '#607D8B'],
+            ['name' => 'Reopened', 'color' => '#E91E63'],
+            ['name' => 'In Litigation', 'color' => '#9E9E9E'],
+            ['name' => 'Waiting for Third Party', 'color' => '#CDDC39'],
+            ['name' => 'Cancelled', 'color' => '#FF5252'],
+            ['name' => 'Duplicate', 'color' => '#7C4DFF'],
+            ['name' => 'Under Audit', 'color' => '#FFD600'],
+        ];
+
+        // Insertar estatus en la tabla claim_status
+        foreach ($claimStatuses as $status) {
+            Claimstatu::create([
+                'uuid' => Uuid::uuid4()->toString(),
+                'claim_status_name' => $status['name'],
+                'background_color' => $status['color']
+            ]);
+        }
+
+        // END CLAIM STATUS
     }
   
 

@@ -58,10 +58,11 @@ class ClaimController extends BaseController
     try {
         // Extraer el array de IDs de alianzas
         //$alliancesIds = $request->get('alliance_company_id', []);
+        $causeOfLoss = $request->input('cause_of_loss_id', []);
         $technicalIds = $request->get('technical_user_id', []);
         $serviceRequestIds = $request->get('service_request_id', []);
         // Pasar ambos parámetros al método storeData
-        $claim = $this->claimService->storeData($request->validated(), $technicalIds,$serviceRequestIds);
+        $claim = $this->claimService->storeData($request->validated(), $technicalIds,$serviceRequestIds,$causeOfLoss);
 
         DB::commit();
 
@@ -100,10 +101,11 @@ class ClaimController extends BaseController
     try {
         // Extraer el array de IDs de alianzas y técnicos
         //$alliancesIds = $request->get('alliance_company_id', []);
+        $causeOfLoss = $request->input('cause_of_loss_id', []);
         $technicalIds = $request->get('technical_user_id', []);
         $serviceRequestIds = $request->get('service_request_id', []);
         // Pasar ambos parámetros al método updateData
-        $claim = $this->claimService->updateData($request->validated(), $uuid, $technicalIds, $serviceRequestIds);
+        $claim = $this->claimService->updateData($request->validated(), $uuid, $technicalIds, $serviceRequestIds,$causeOfLoss);
 
         return ApiResponseClass::sendSimpleResponse(new ClaimResource($claim), 200);
     } catch (\Exception $e) {

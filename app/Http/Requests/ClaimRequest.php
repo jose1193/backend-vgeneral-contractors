@@ -39,7 +39,7 @@ class ClaimRequest extends FormRequest
         'date_of_loss' => 'nullable|string|max:255',
         'description_of_loss' => 'nullable',
         'claim_date' => 'nullable|string|max:255',
-        'claim_status' => 'nullable|string|max:255',
+        'claim_status' => 'nullable|integer|max:255',
         'damage_description' => 'nullable|string|max:255',
         'scope_of_work' => 'nullable',
         'customer_reviewed' => 'nullable|boolean',
@@ -61,7 +61,14 @@ class ClaimRequest extends FormRequest
 
         // Validación para cada elemento del array
         'service_request_id.*' => 'integer|exists:service_requests,id',
+        
+         // Validación para el array de IDs de Cause of Loss
+        'cause_of_loss_id' => $isStoreRoute 
+        ? ['required', 'array', 'min:1', 'max:10'] 
+        : ['nullable', 'array', 'max:10'],
 
+        // Validación para cada elemento del array
+        'cause_of_loss_id.*' => 'integer|exists:service_requests,id',
 
         // Validación de otros roles específicos
         'insurance_adjuster_id' => [

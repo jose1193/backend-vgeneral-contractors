@@ -7,7 +7,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
 
-class TypeDamageRequest extends FormRequest
+class CauseOfLossRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -25,9 +25,9 @@ class TypeDamageRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'type_damage_name' => $this->getTypeDamageNameRules(),
+            'cause_loss_name' => $this->getCauseLossNameRules(),
             'description' => ['nullable', 'string', 'max:255'],
-            'severity' => ['nullable', 'integer'],
+            'severity' => ['nullable', Rule::in(['low', 'medium', 'high'])],
         ];
 
         if ($this->isMethod('put') || $this->isMethod('patch')) {
@@ -39,20 +39,20 @@ class TypeDamageRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules for 'type_damage_name' with uniqueness check for POST.
+     * Get the validation rules for 'cause_loss_name' with uniqueness check for POST.
      */
-    private function getTypeDamageNameRules(): array
+    private function getCauseLossNameRules(): array
     {
         $rules = ['required', 'string', 'max:255'];
 
         if ($this->isMethod('post')) {
-        $rules[] = Rule::unique('type_damages', 'type_damage_name');
+            $rules[] = Rule::unique('cause_of_losses', 'cause_loss_name');
         } elseif ($this->isMethod('put') || $this->isMethod('patch')) {
-        $currentTypeDamage = $this->route('type-damage');
+            $currentCauseOfLoss = $this->route('cause-of-loss');
         
             // Verificar si el nombre no ha cambiado
-            if ($currentTypeDamage && $currentTypeDamage->type_damage_name !== $this->input('type_damage_name')) {
-            $rules[] = Rule::unique('type_damages', 'type_damage_name')->ignore($currentTypeDamage->id);
+            if ($currentCauseOfLoss && $currentCauseOfLoss->cause_loss_name !== $this->input('cause_loss_name')) {
+                $rules[] = Rule::unique('cause_of_losses', 'cause_loss_name')->ignore($currentCauseOfLoss->id);
             }
         }
 
@@ -68,7 +68,8 @@ class TypeDamageRequest extends FormRequest
             'required' => 'The :attribute field is required.',
             'string' => 'The :attribute must be a string.',
             'max' => 'The :attribute may not be greater than :max characters.',
-            'type_damage_name.unique' => 'This type of damage name is already registered.',
+            'cause_loss_name.unique' => 'This cause of loss name is already registered.',
+            'severity.in' => 'The severity must be one of the following: low, medium, high.',
         ];
     }
 
