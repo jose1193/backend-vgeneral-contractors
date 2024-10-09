@@ -318,8 +318,16 @@
                             font-size: 20px;
                             line-height: 34px;
                             font-family: arial, helvetica, sans-serif;
-                        "><strong>Registration
-                                                                            Successful</strong></span>
+                        "><span
+                                                                            style="font-size: 20px; line-height: 34px; font-family: arial, helvetica, sans-serif;">
+                                                                            <strong>
+                                                                                @if ($isNewUser)
+                                                                                    Registration Successful
+                                                                                @else
+                                                                                    Password Update Successful
+                                                                                @endif
+                                                                            </strong>
+                                                                        </span></span>
                                                                 </p>
                                                                 <p
                                                                     style="
@@ -359,9 +367,16 @@
                             line-height: 27.2px;
                             color: #000000;
                             font-family: arial, helvetica, sans-serif;
-                        ">Your
-                                                                        registration has been successfully completed.
-                                                                        Below are your access details:</span>
+                        ">
+                                                                        @if ($isNewUser)
+                                                                            Your registration has been successfully
+                                                                            completed. Below are your access details:
+                                                                        @else
+                                                                            Your password has been successfully updated.
+                                                                            Please find your updated access details
+                                                                            below:
+                                                                        @endif
+                                                                    </span>
                                                                 </p>
                                                                 <p
                                                                     style="
@@ -440,9 +455,15 @@
                             line-height: 20.4px;
                             font-size: 12px;
                             font-family: arial, helvetica, sans-serif;
-                        ">If
-                                                                        you did not request this, please contact support
-                                                                        immediately.</span>
+                        ">
+                                                                        @if ($isNewUser)
+                                                                            If you did not request this registration,
+                                                                            please contact support immediately.
+                                                                        @else
+                                                                            If you did not request this password change,
+                                                                            please contact support immediately.
+                                                                        @endif
+                                                                    </span>
                                                                 </p>
                                                             </div>
                                                         </td>

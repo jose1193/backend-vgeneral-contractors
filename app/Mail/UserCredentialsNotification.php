@@ -9,18 +9,23 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class WelcomeMailWithCredentials extends Mailable
+class UserCredentialsNotification extends Mailable
 {
     use Queueable, SerializesModels;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(public $user, public $password,public $roles)
-    {
+    public function __construct(
+        public $user,
+        public $password,
+        public $roles,
+        public $isNewUser
+    ) {
         $this->user = $user;
         $this->password = $password;
         $this->roles = $roles;
+        $this->isNewUser = $isNewUser;
     }
 
     /**
@@ -28,8 +33,12 @@ class WelcomeMailWithCredentials extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subject = $this->isNewUser
+            ? 'Welcome to V General Contractors - Your Account Credentials'
+            : 'V General Contractors - Your Password Has Been Updated';
+
         return new Envelope(
-            subject: 'Welcome Mail With Credentials V General Contractors',
+            subject: $subject,
         );
     }
 
@@ -39,12 +48,13 @@ class WelcomeMailWithCredentials extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.welcome_email_user_credentials',
+            view: 'emails.user_credentials_notification',
             with: [
                 'username' => $this->user->username,
                 'email' => $this->user->email,
                 'password' => $this->password,
                 'roles' => $this->roles,
+                'isNewUser' => $this->isNewUser,
             ],
         );
     }

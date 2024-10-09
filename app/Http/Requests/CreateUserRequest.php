@@ -1,86 +1,86 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Contracts\Auth\Guard;
-use Illuminate\Validation\ValidationException;
 
 class CreateUserRequest extends FormRequest
 {
-    public function __construct(
-        private Guard $auth
-    ) {}
-
     public function authorize(): bool
     {
-        // Implement actual authorization logic here
         return true;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     public function rules(): array
     {
-        $isRegisterRoute = Route::is('api.register');
-        $userId = $this->auth->id();
-
-        return [
-            'name' => ['required', 'string', 'max:40', 'regex:/^[a-zA-Z\s]+$/'],
-            'last_name' => ['nullable', 'string', 'max:40', 'regex:/^[a-zA-Z\s]+$/'],
+        $rules = [
+            'name' => ['required', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
             'username' => [
-                'required',
+                'nullable',
                 'string',
                 'max:30',
                 'regex:/^[a-zA-Z0-9_]+$/',
-                $isRegisterRoute
-                    ? Rule::unique('users')
-                    : Rule::unique('users')->ignore($userId),
             ],
-            'register_date' => ['nullable', 'date'],
-            'email' => $this->emailRules($isRegisterRoute, $userId),
-            'password' => ['nullable', 'string', Password::min(5)->mixedCase()->numbers()->symbols()->uncompromised()],
+            'email' => ['required', 'string', 'email','max:255'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'generate_password' => ['nullable', 'boolean'],
-            'phone' => ['nullable', 'string', 'min:4', 'max:20'],
+            'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
-            'address_2' => ['nullable', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', 'max:255'],
-            'latitude' => ['nullable', 'numeric'],
-            'longitude' => ['nullable', 'numeric'],
-            'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
-            'user_role' => [$isRegisterRoute ? 'required' : 'nullable', 'exists:roles,id'],
-            'provider' => ['nullable', 'string', 'min:4', 'max:20'],
-            'provider_id' => ['nullable', 'string', 'min:4', 'max:30'],
-            'provider_avatar' => ['nullable', 'url', 'max:255'],
-        ];
-    }
-
-    private function emailRules(bool $isRegisterRoute, ?int $userId): array
-    {
-        $rules = [
-            'required',
-            'string',
-            'email',
-            'min:10',
-            'max:255',
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'gender' => ['nullable', 'string', Rule::in(['male', 'female', 'other'])],
+            'user_role' => ['nullable', 'integer', 'exists:roles,id'],
+            'provider' => ['nullable', 'string', 'max:255'],
+            'provider_id' => ['nullable', 'string', 'max:255'],
+            'provider_avatar' => ['nullable', 'string', 'url', 'max:2048'],
         ];
 
-        $rules[] = $isRegisterRoute
-            ? Rule::unique('users')
-            : Rule::unique('users')->ignore($userId);
+        if ($this->isMethod('put') || $this->isMethod('patch')) {
+            $rules = array_map(fn($rule) => array_merge(['sometimes'], $rule), $rules);
+        }
 
         return $rules;
     }
 
-    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    public function messages(): array
     {
-        throw ValidationException::withMessages($validator->errors()->toArray());
+        return [
+            'required' => 'The :attribute field is required.',
+            'string' => 'The :attribute must be a string.',
+            'max' => 'The :attribute may not be greater than :max characters.',
+            'email' => 'The :attribute must be a valid email address.',
+            'regex' => 'The :attribute format is invalid.',
+            'email.unique' => 'This email is already registered.',
+            'username.unique' => 'This username is already taken.',
+            'username.regex' => 'The username may only contain letters, numbers, and underscores.',
+            'password.min' => 'The password must be at least 8 characters.',
+            'password.confirmed' => 'The password confirmation does not match.',
+            'latitude.between' => 'The latitude must be between -90 and 90.',
+            'longitude.between' => 'The longitude must be between -180 and 180.',
+            'gender.in' => 'The selected gender is invalid.',
+            'user_role.exists' => 'The selected user role is invalid.',
+            'provider_avatar.url' => 'The provider avatar must be a valid URL.',
+        ];
+    }
+
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422)
+        );
     }
 }

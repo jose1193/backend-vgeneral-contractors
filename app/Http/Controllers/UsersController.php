@@ -42,7 +42,7 @@ class UsersController extends BaseController
         try {
             $validatedData = $request->validated();
             $dto = UserDTO::fromArray($validatedData);
-            $user = $this->userService->storeUser($dto);
+            $user = $this->userService->storeData($dto);
             return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error storing user');
@@ -53,7 +53,7 @@ class UsersController extends BaseController
     {
         try {
             $uuidObject = Uuid::fromString($uuid);
-            $user = $this->userService->showUser($uuidObject);
+            $user = $this->userService->showData($uuidObject);
             return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
         } catch (\Ramsey\Uuid\Exception\InvalidUuidStringException $e) {
             return $this->handleError($e, 'Invalid UUID format');
@@ -62,14 +62,14 @@ class UsersController extends BaseController
         }
     }
 
-    public function update(CreateUserRequest $request, string $uuid): JsonResponse
-    {
-        try {
-            $uuidObject = Uuid::fromString($uuid);
-            $dto = UserDTO::fromArray($request->validated());
-            $user = $this->userService->updateUser($dto, $uuidObject);
-            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
-        } catch (\Exception $e) {
+    public function update(Request $request, string $uuid): JsonResponse
+    {   try {
+        
+        $userDto = UserDTO::fromArray($request->all());
+        $updatedUser = $this->userService->updateData($userDto, Uuid::fromString($uuid));
+
+        return ApiResponseClass::sendSimpleResponse(new UserResource($updatedUser), 200);
+        }catch (\Exception $e) {
             return $this->handleError($e, 'Error updating user');
         }
     }
@@ -78,7 +78,7 @@ class UsersController extends BaseController
     {
         try {
             $uuidObject = Uuid::fromString($uuid);
-            $this->userService->deleteUser($uuidObject);
+            $this->userService->deleteData($uuidObject);
             return ApiResponseClass::sendResponse('User deleted successfully', '', 200);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error deleting user');
@@ -89,7 +89,7 @@ class UsersController extends BaseController
     {
         try {
             $uuidObject = Uuid::fromString($uuid);
-            $user = $this->userService->restoreUser($uuidObject);
+            $user = $this->userService->restoreData($uuidObject);
             return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error restoring user');

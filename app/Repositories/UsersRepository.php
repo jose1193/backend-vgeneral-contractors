@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\User;
+use Spatie\Permission\Models\Role;
 use App\Interfaces\UsersRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -24,7 +25,7 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  string  $uuid
      * @return \App\Models\User
      */
-    public function getByUuid(string $uuid): User
+    public function getByUuid(string $uuid): object
     {
         return User::where('uuid', $uuid)->firstOrFail();
     }
@@ -35,7 +36,7 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  array  $data
      * @return \App\Models\User
      */
-    public function store(array $data): User
+    public function store(array $data): object
     {
         return User::create($data);
     }
@@ -47,15 +48,13 @@ class UsersRepository implements UsersRepositoryInterface
      * @param  string  $uuid
      * @return bool
      */
-   public function update(array $data, string $uuid): User
+    public function update(array $data, string $uuid): object
     {
-       
-        $user = User::where('uuid', $uuid)->firstOrFail();
+        $user = $this->getByUuid($uuid);
         $user->update($data);
-
-        
         return $user;
     }
+
 
     /**
      * Delete a user by UUID.
@@ -65,13 +64,13 @@ class UsersRepository implements UsersRepositoryInterface
      */
     public function delete(string $uuid): bool
     {
-        $user = User::where('uuid', $uuid)->firstOrFail();
+        $user = $this->getByUuid($uuid);
        
 
         return $user->delete();
     }
 
-    public function restore(string $uuid): User
+    public function restore(string $uuid): object
     {
         
         
@@ -91,6 +90,12 @@ class UsersRepository implements UsersRepositoryInterface
          return User::role($role, 'api')->get();
     }
 
+    public function findByEmail(string $email): ?User
+    {
+        return User::where('email', $email)->first();
+    }
+
+    
     public function isSuperAdmin(int $userId): bool
     {
     return User::findOrFail($userId)->hasRole('Super Admin');
@@ -101,5 +106,11 @@ class UsersRepository implements UsersRepositoryInterface
         return User::whereHas('roles', function ($query) {
             $query->where('name', 'Super Admin');
         })->get();
+    }
+
+
+    public function getAllRoles(): Collection
+    {
+        return Role::orderBy('id', 'DESC')->get();
     }
 }

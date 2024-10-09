@@ -5,242 +5,263 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Interfaces\UsersRepositoryInterface;
-use App\Interfaces\TransactionServiceInterface;
-use App\Interfaces\CacheServiceInterface;
 use App\DTOs\UserDTO;
 use Exception;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\WelcomeMailWithCredentials;
+use Illuminate\Support\Str;
+use Psr\Log\LoggerInterface;
 
+use App\Mail\UserCredentialsNotification;
+use App\Jobs\SendWelcomeEmailWithCredentials;
 class UserService
 {
-    private const CACHE_TIME = 720; // minutes
-    private const CACHE_KEY_LIST = 'users_list_';
+    private const CACHE_KEY_USER = 'user_';
+    private const CACHE_KEY_LIST = 'users_total_list_';
+    private const CACHE_KEY_ROLE = 'users_role_';
+
+    private const USER_FIELDS = [
+        'uuid', 'name', 'last_name', 'username', 'email', 'password', 'phone',
+        'address', 'zip_code', 'city', 'state', 'country', 'latitude', 'longitude',
+        'gender', 'user_role', 'provider', 'provider_id', 'provider_avatar', 'register_date'
+    ];
 
     public function __construct(
         private readonly UsersRepositoryInterface $repository,
         private readonly TransactionService $transactionService,
-        private readonly CacheService $cacheService
+        private readonly UserCacheService $userCacheService,
+        private readonly LoggerInterface $logger
     ) {}
 
     public function all(): Collection
     {
-        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
-        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->index());
+        return $this->userCacheService->getCachedUserList(
+            self::CACHE_KEY_LIST,
+            Auth::id(),
+            fn() => $this->repository->index()
+        );
     }
 
-    public function storeUser(UserDTO $userDto): object
+    public function storeData(UserDTO $userDto): object
     {
         return $this->transactionService->handleTransaction(function () use ($userDto) {
-        $userDetails = $this->prepareUserDetails($userDto);
-        $plainTextPassword = $userDetails['plain_text_password'];
-        unset($userDetails['plain_text_password']); // Remove it before storing
+            $userDetails = $this->prepareUserDetails($userDto);
+            $plainTextPassword = $userDetails['plain_text_password'];
+            unset($userDetails['plain_text_password']);
 
-        $user = $this->repository->store($userDetails);
-        if ($userDto->userRole !== null) {
-            $this->syncRoles($user, $userDto->userRole);
-        }
-        $this->sendWelcomeEmail($user, $plainTextPassword);
-        $this->updateDataCache();
-        return $user;
-        }, 'storing user');
-    }
+            // Almacenar el usuario
+            $user = $this->repository->store($userDetails);
 
-    public function updateUser(UserDTO $userDto, UuidInterface $uuid): ?object
-    {
-        return $this->transactionService->handleTransaction(function () use ($userDto, $uuid) {
-            $existingUser = $this->getExistingUser($uuid);
-            $this->validateUserPermission($existingUser);
-
-            $updateDetails = $this->prepareUpdateDetails($userDto);
-            $user = $this->repository->update($updateDetails, $uuid->toString());
+            // Asignar roles si están presentes en el DTO
             if ($userDto->userRole !== null) {
                 $this->syncRoles($user, $userDto->userRole);
             }
 
-            $this->updateCache($uuid, $user);
-            $this->updateDataCache();
+            // Actualizar caches
+            $this->updateCaches();
+            $this->logger->info('User stored successfully', ['user_id' => $user->id]);
+
+            // Enviar notificación con la contraseña generada o proporcionada
+            $this->sendUserCreatedNotification($user, $plainTextPassword);
+
+            return $user;
+        }, 'storing user');
+    }
+
+
+
+    public function updateData(UserDTO $userDto, UuidInterface $uuid): object
+    {
+        return $this->transactionService->handleTransaction(function () use ($userDto, $uuid) {
+            $existingUser = $this->repository->getByUuid($uuid->toString());
+
+            if ($userDto->email !== null && $userDto->email !== $existingUser->email) {
+                $this->checkEmailUniqueness($userDto->email, $uuid);
+            }
+
+            $updateDetails = $this->prepareUpdateDetails($userDto);
+
+            
+            if ($userDto->generatePassword === true) {
+                $newPassword = $this->generateRobustPassword();
+                $updateDetails['password'] = Hash::make($newPassword);
+            }
+
+            $user = $this->repository->update($updateDetails, $uuid->toString());
+
+            if ($userDto->userRole !== null) {
+                $this->syncRoles($user, $userDto->userRole);
+            }
+
+            $this->updateCaches($uuid);
+
+            // Send email with new password if it was generated
+            if ($userDto->generatePassword === true) {
+                $this->sendPasswordUpdateNotification($user, $newPassword);
+            }
+
+            $this->logger->info('User updated successfully', ['user_id' => $user->id]);
             return $user;
         }, 'updating user');
     }
 
-
-     private function prepareUpdateDetails(UserDTO $dto): array
+    public function showData(UuidInterface $uuid): ?object
     {
-        $updateDetails = [
-            'user_id_ref_by' => Auth::id(),
-        ];
+        return $this->userCacheService->getCachedItem(
+            self::CACHE_KEY_USER,
+            $uuid->toString(),
+            fn() => $this->repository->getByUuid($uuid->toString())
+        );
+    }
 
-        $fields = [
-            'name' => 'name',
-            'last_name' => 'lastName',
-            'username' => 'username',
-            'email' => 'email',
-            'phone' => 'phone',
-            'address' => 'address',
-            'zip_code' => 'zipCode',
-            'city' => 'city',
-            'state' => 'state',
-            'country' => 'country',
-            'latitude' => 'latitude',
-            'longitude' => 'longitude',
-            'gender' => 'gender',
-            'provider' => 'provider',
-            'provider_id' => 'providerId',
-            'provider_avatar' => 'providerAvatar',
-            'register_date' => 'registerDate'
-        ];
+    public function deleteData(UuidInterface $uuid): bool
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingUser = $this->repository->getByUuid($uuid->toString());
+            
+            $this->repository->delete($uuid->toString());
+            $this->updateCaches($uuid);
+            
+            $this->logger->info('User deleted successfully', ['user_uuid' => $uuid->toString()]);
+            return true;
+        }, 'deleting user');
+    }
 
-        foreach ($fields as $dbField => $dtoField) {
-            if (property_exists($dto, $dtoField) && $dto->$dtoField !== null) {
-                $updateDetails[$dbField] = $dto->$dtoField;
-            }
+    public function restoreData(UuidInterface $uuid): object
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $user = $this->repository->restore($uuid->toString());
+            $this->updateCaches($uuid);
+            $this->logger->info('User restored successfully', ['user_id' => $user->id]);
+            return $user;
+        }, 'restoring user');
+    }
+
+    private function prepareUserDetails(UserDTO $dto): array
+    {
+    // Genera la contraseña si no se proporcionó
+        $plainTextPassword = $dto->password ?? $this->generateRobustPassword();
+    
+        return [
+        ...$dto->toArray(),
+        'uuid' => Uuid::uuid4()->toString(),
+        'password' => Hash::make($plainTextPassword), 
+        'email_verified_at' => now(),
+        'plain_text_password' => $plainTextPassword, 
+        ];
+    }
+
+    private function checkEmailUniqueness(string $email, UuidInterface $currentUserUuid): void
+    {
+        $existingUserWithEmail = $this->repository->findByEmail($email);
+
+        if ($existingUserWithEmail && $existingUserWithEmail->uuid !== $currentUserUuid->toString()) {
+            throw new Exception('The email address is already in use by another account.');
         }
+    }
 
-        // Handle password separately
-        if (property_exists($dto, 'password') && $dto->password !== null) {
-            $updateDetails['password'] = Hash::make($dto->password);
+    private function prepareUpdateDetails(UserDTO $dto): array
+    {
+        $updateDetails = [];
+
+        foreach (self::USER_FIELDS as $field) {
+            $dtoField = lcfirst(str_replace('_', '', ucwords($field, '_')));
+            if (property_exists($dto, $dtoField) && $dto->$dtoField !== null) {
+                $updateDetails[$field] = $dto->$dtoField instanceof UuidInterface
+                    ? $dto->$dtoField->toString()
+                    : $dto->$dtoField;
+            }
         }
 
         return $updateDetails;
     }
 
-    public function showUser(UuidInterface $uuid): ?object
-    {
-        $cacheKey = $this->generateCacheKey('user_', $uuid->toString());
-        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByUuid($uuid->toString()));
-    }
-
-    public function deleteUser(UuidInterface $uuid): bool
-    {
-        return $this->transactionService->handleTransaction(function () use ($uuid) {
-            $existingUser = $this->getExistingUser($uuid);
-            $this->validateUserPermission($existingUser);
-            
-            $this->repository->delete($uuid->toString());
-            $this->invalidateUserCache($uuid);
-            $this->updateDataCache();
-            return true;
-        }, 'deleting user');
-    }
-
-    public function restoreUser(UuidInterface $uuid): object
-    {
-        return $this->transactionService->handleTransaction(function () use ($uuid) {
-            $user = $this->repository->restore($uuid->toString());
-            $this->updateCache($uuid, $user);
-            $this->updateDataCache();
-            return $user;
-        }, 'restoring user');
-    }
-
     public function getUsersByRole(string $role): Collection
     {
-        $cacheKey = $this->generateCacheKey('users_role_', $role);
-        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, fn() => $this->repository->getByRole($role));
-    }
-
-        private function generateRobustPassword(int $length = 10): string
-    {
-    $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    $lowercase = 'abcdefghijklmnopqrstuvwxyz';
-    $numbers = '0123456789';
-    $specialChars = '!@#$%^&*()_-+=<>?';
-
-    $allChars = $uppercase . $lowercase . $numbers . $specialChars;
-    $password = '';
-
-    // Ensure at least one character from each set
-    $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
-    $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
-    $password .= $numbers[random_int(0, strlen($numbers) - 1)];
-    $password .= $specialChars[random_int(0, strlen($specialChars) - 1)];
-
-    // Fill the rest of the password
-    for ($i = strlen($password); $i < $length; $i++) {
-        $password .= $allChars[random_int(0, strlen($allChars) - 1)];
-    }
-
-    // Shuffle the password to mix up the guaranteed characters
-    return str_shuffle($password);
-    }
-
-    private function prepareUserDetails(UserDTO $dto): array
-    {
-        $plainTextPassword = $dto->password ?? $this->generateRobustPassword();
-        return [
-        ...$dto->toArray(),
-        'uuid' => Uuid::uuid4()->toString(),
-        'password' => Hash::make($plainTextPassword),
-        'email_verified_at' => now(),
-        'plain_text_password' => $plainTextPassword, // This will be used for emailing, then discarded
-        ];
+        $cacheKey = self::CACHE_KEY_ROLE . strtolower(str_replace(' ', '_', $role));
+        return $this->userCacheService->getCachedDataList(
+            $cacheKey,
+            fn() => $this->repository->getByRole($role)
+        );
     }
 
     
-
-    private function getExistingUser(UuidInterface $uuid): object
+    public function getTechnicalServices(): Collection
     {
-        $user = $this->repository->getByUuid($uuid->toString());
-        if (!$user) {
-            throw new Exception("User not found");
-        }
-        return $user;
+        return $this->getUsersByRole('Technical Services');
     }
 
-    private function validateUserPermission(): void
+    private function generateRobustPassword(int $length = 10): string
     {
-        $userId = Auth::id();
-        $isSuperAdmin = $this->repository->isSuperAdmin($userId);
+        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
+        $numbers = '0123456789';
+        $specialChars = '!@#$%^&*()_-+=<>?';
+        $allChars = $uppercase . $lowercase . $numbers . $specialChars;
+        $password = '';
 
-        if (!$isSuperAdmin) {
-            throw new Exception("Unauthorized access");
+        // Ensure at least one character from each set
+        $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
+        $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
+        $password .= $numbers[random_int(0, strlen($numbers) - 1)];
+        $password .= $specialChars[random_int(0, strlen($specialChars) - 1)];
+
+        // Fill the rest of the password
+        for ($i = strlen($password); $i < $length; $i++) {
+            $password .= $allChars[random_int(0, strlen($allChars) - 1)];
         }
-    }
 
-    private function syncRoles(object $user, $roleId): void
+        // Shuffle the password to mix up the guaranteed characters
+        return str_shuffle($password);
+    }
+    
+    private function syncRoles($user, $roleId)
     {
+        // Verificar que roleId es un array o un valor único
         if (is_array($roleId)) {
+            // Si es un array, sincronizar los roles
             $user->roles()->sync($roleId);
         } else {
+            // Si es un solo ID, sincronizar con un solo rol
             $user->roles()->sync([$roleId]);
         }
     }
 
-    private function sendWelcomeEmail(object $user, string $password): void
+    private function updateCaches(?UuidInterface $uuid = null): void
     {
-        $passwordMessage = $password === $user->password 
-        ? 'the password you registered'
-        : $password; // This will be the plain text password
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, Auth::id());
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
+        $roles = $this->repository->getAllRoles();
+        
+        if ($roles) {
+        foreach ($roles as $role) {
+            $cacheKey = self::CACHE_KEY_ROLE . strtolower(str_replace(' ', '_', $role->name));
+            $this->userCacheService->updateRolesCaches($cacheKey);
+        }
+        } else {
+        $this->userCacheService->updateRolesCaches(self::CACHE_KEY_ROLE);
+        }
 
-        Mail::to($user->email)->send(new WelcomeMailWithCredentials($user, $passwordMessage));
+        if ($uuid) {
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_USER, $uuid->toString());
+        }
     }
 
-    private function updateCache(UuidInterface $uuid, object $user): void
+    private function sendUserCreatedNotification(object $user, string $password): void
     {
-        $cacheKey = $this->generateCacheKey('user_', $uuid->toString());
-        $this->cacheService->refreshCache($cacheKey, self::CACHE_TIME, fn() => $user);
+        $roles = $user->roles()->pluck('name')->toArray();
+        Mail::to($user->email)->send(new UserCredentialsNotification($user, $password, $roles, true));
+        $this->logger->info('User created notification sent', ['user_id' => $user->id]);
     }
 
-    private function updateDataCache(): void
+    private function sendPasswordUpdateNotification(object $user, string $newPassword): void
     {
-        $cacheKey = $this->generateCacheKey(self::CACHE_KEY_LIST, (string) Auth::id());
-        $this->cacheService->updateDataCache($cacheKey, self::CACHE_TIME, fn() => $this->repository->index());
-    }
-
-    private function invalidateUserCache(UuidInterface $uuid): void
-    {
-        $this->cacheService->invalidateCache($this->generateCacheKey('user_', $uuid->toString()));
-    }
-
-    private function generateCacheKey(string $prefix, string $suffix): string
-    {
-        return $prefix . $suffix;
+        $roles = $user->roles()->pluck('name')->toArray();
+        Mail::to($user->email)->send(new UserCredentialsNotification($user, $newPassword, $roles, false));
+        $this->logger->info('Password update notification sent', ['user_id' => $user->id]);
     }
 }

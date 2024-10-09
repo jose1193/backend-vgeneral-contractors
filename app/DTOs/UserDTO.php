@@ -10,8 +10,8 @@ class UserDTO
         public readonly ?Uuid $uuid,
         public readonly string $name,
         public readonly ?string $lastName,
-        public readonly string $username,
-        public readonly string $email,
+        public readonly ?string $username,
+        public readonly ?string $email,
         public readonly ?string $password,
         public readonly ?bool $generatePassword,
         public readonly ?string $phone,
@@ -23,11 +23,11 @@ class UserDTO
         public readonly ?float $latitude,
         public readonly ?float $longitude,
         public readonly ?string $gender,
-        public readonly ?int $userRole,  // Changed from userRoleId to userRole
+        public readonly ?int $userRole,  
         public readonly ?string $provider,
         public readonly ?string $providerId,
         public readonly ?string $providerAvatar,
-        public readonly ?string $registerDate
+        
     ) {}
 
     public static function fromArray(array $data): self
@@ -36,8 +36,8 @@ class UserDTO
             uuid: isset($data['uuid']) ? Uuid::fromString($data['uuid']) : null,
             name: $data['name'],
             lastName: $data['last_name'] ?? null,
-            username: $data['username'],
-            email: $data['email'],
+            username: $data['username'] ?? null,
+            email: $data['email'] ?? null,
             password: $data['password'] ?? null,
             generatePassword: $data['generate_password'] ?? null,
             phone: $data['phone'] ?? null,
@@ -53,34 +53,13 @@ class UserDTO
             provider: $data['provider'] ?? null,
             providerId: $data['provider_id'] ?? null,
             providerAvatar: $data['provider_avatar'] ?? null,
-            registerDate: $data['register_date'] ?? null
+            
         );
     }
 
     public function toArray(): array
     {
-        return [
-            'uuid' => $this->uuid?->toString(),
-            'name' => $this->name,
-            'last_name' => $this->lastName,
-            'username' => $this->username,
-            'email' => $this->email,
-            'password' => $this->password,
-            'generate_password' => $this->generatePassword,
-            'phone' => $this->phone,
-            'address' => $this->address,
-            'zip_code' => $this->zipCode,
-            'city' => $this->city,
-            'state' => $this->state,
-            'country' => $this->country,
-            'latitude' => $this->latitude,
-            'longitude' => $this->longitude,
-            'gender' => $this->gender,
-            'user_role' => $this->userRole,
-            'provider' => $this->provider,
-            'provider_id' => $this->providerId,
-            'provider_avatar' => $this->providerAvatar,
-            'register_date' => $this->registerDate
-        ];
+        return array_filter(get_object_vars($this), fn($value) => $value !== null);
     }
+
 }

@@ -39,6 +39,17 @@ class UserCacheService
         }
     }
 
+    public function updateRolesCaches(string $cacheKeyPrefix): void
+    {
+        $this->cacheService->forget($cacheKeyPrefix);
+    }
+
+    
+    public function getCachedDataList(string $cacheKey, callable $dataCallback): Collection
+    {
+        return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, $dataCallback);
+    }
+    
     public function getCachedUserList(string $cacheKeyPrefix, int $userId, callable $dataCallback): Collection
     {
         $cacheKey = $this->generateCacheKey($cacheKeyPrefix, (string) $userId);

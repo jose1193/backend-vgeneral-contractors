@@ -203,7 +203,6 @@ private function getCachedUser($userId)
 
 public function checkUsernameAvailability($username)
 {
-   
 
     // Obtener el usuario actualmente autenticado
     $currentUser = auth()->user();

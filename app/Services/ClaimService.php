@@ -6,7 +6,7 @@ namespace App\Services;
 
 use App\Interfaces\ClaimRepositoryInterface;
 use App\DTOs\ClaimDTO;
-use App\Exceptions\ClaimNotFoundException;
+use Exception;
 use App\Models\User;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
@@ -174,7 +174,7 @@ class ClaimService
         $claim = $this->repository->getByUuid($uuid->toString());
         if (!$claim) {
             $this->logger->error('Claim not found', ['uuid' => $uuid->toString()]);
-            throw new ClaimNotFoundException("Claim not found with UUID: {$uuid->toString()}");
+            throw new Exception("Claim not found with UUID: {$uuid->toString()}");
         }
         return $claim;
     }
