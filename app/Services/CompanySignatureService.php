@@ -8,9 +8,7 @@ use App\Interfaces\CompanySignatureRepositoryInterface;
 use App\Interfaces\S3ServiceInterface;
 use App\Interfaces\TransactionServiceInterface;
 use App\DTOs\CompanySignatureDTO;
-use App\Exceptions\UnauthorizedException;
-use App\Exceptions\SignatureAlreadyExistsException;
-use App\Exceptions\SignatureNotFoundException;
+
 use Exception;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
@@ -110,7 +108,7 @@ class CompanySignatureService
     private function ensureSignatureDoesNotExist(): void
     {
         if ($this->repository->findFirst()) {
-            throw new SignatureAlreadyExistsException("A company signature already exists. Use updateData to modify it.");
+            throw new Exception("A company signature already exists. Use updateData to modify it.");
         }
     }
 
@@ -134,7 +132,7 @@ class CompanySignatureService
     {
         $signature = $this->repository->getByUuid($uuid->toString());
         if (!$signature) {
-            throw new SignatureNotFoundException("Signature not found");
+            throw new Exception("Signature not found");
         }
         return $signature;
     }
@@ -142,7 +140,7 @@ class CompanySignatureService
     private function validateUserPermission(object $signature): void
     {
         if ($signature->user_id !== Auth::id()) {
-            throw new UnauthorizedException("No permission to perform this operation.");
+            throw new Exception("No permission to perform this operation.");
         }
     }
 

@@ -1,419 +1,279 @@
-<?php // app/Services/ClaimService.php
+<?php
+
+declare(strict_types=1);
 
 namespace App\Services;
 
 use App\Interfaces\ClaimRepositoryInterface;
-use App\Http\Controllers\BaseController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
-use Exception;
-use Illuminate\Database\QueryException;
+use App\DTOs\ClaimDTO;
+use App\Exceptions\ClaimNotFoundException;
 use App\Models\User;
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use App\Mail\PublicAdjusterAssignmentNotification;
 use App\Mail\TechnicalUserAssignmentNotification;
-use App\Jobs\SendPublicAdjusterAssignmentNotification;
-use App\Jobs\SendTechnicalUserAssignmentNotification;
-
-use App\Helpers\ImageHelper;
+use Psr\Log\LoggerInterface;
 
 class ClaimService
 {
-    protected $claimRepositoryInterface;
-    protected $baseController;
-    protected $cacheKey;
-    protected $cacheTime = 720;
+    private const CACHE_KEY_CLAIM = 'claim_';
+    private const CACHE_KEY_LIST = 'claims_total_list_';
+    
+    // New constants for field names
+    private const CLAIM_FIELDS = [
+        'uuid', 'property_id', 'signature_path_id', 'type_damage_id', 'policy_number',
+        'claim_internal_id', 'date_of_loss', 'description_of_loss', 'claim_date', 'claim_status',
+        'damage_description', 'scope_of_work', 'customer_reviewed', 'claim_number',
+        'number_of_floors', 'alliance_company_id', 'insurance_adjuster_id', 'public_adjuster_id',
+        'public_company_id', 'insurance_company_id', 'work_date', 'day_of_loss_ago',
+        'never_had_prior_loss', 'has_never_had_prior_loss', 'amount_paid', 'description'
+    ];
+
+    private const ASSIGNMENTS = [
+        'insurance_company' => 'InsuranceCompanyAssignment',
+        'insurance_adjuster' => 'InsuranceAdjusterAssignment',
+        'public_adjuster' => 'PublicAdjusterAssignment',
+        'public_company' => 'PublicCompanyAssignment',
+        'alliance_company' => 'AllianceCompanyAssignment',
+    ];
 
     public function __construct(
-        ClaimRepositoryInterface $claimRepositoryInterface,
-        BaseController $baseController
-    ) {
-        $this->claimRepositoryInterface = $claimRepositoryInterface;
-        $this->baseController = $baseController;
-        
+        private readonly ClaimRepositoryInterface $repository,
+        private readonly TransactionService $transactionService,
+        private readonly UserCacheService $userCacheService,
+        private readonly LoggerInterface $logger
+    ) {}
+
+    public function all(): Collection
+    {
+        return $this->userCacheService->getCachedUserList(
+            self::CACHE_KEY_LIST,
+            Auth::id(),
+            fn() => $this->repository->getClaimsByUser(Auth::user())
+        );
     }
 
-    public function all()
+    public function storeData(ClaimDTO $claimDto, array $technicalIds, array $serviceRequestIds, array $causeOfLoss): object
     {
-        try {
-            $this->cacheKey = 'claims_total_list_' . auth()->id();
+        return $this->transactionService->handleTransaction(function () use ($claimDto, $technicalIds, $serviceRequestIds, $causeOfLoss) {
+            $claimDetails = $this->prepareClaimDetails($claimDto);
+            $claim = $this->repository->store($claimDetails);
 
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->claimRepositoryInterface->getClaimsByUser(auth()->user());
-            });
+            $this->handleRelatedData($claim, $technicalIds, $serviceRequestIds, $causeOfLoss);
+            $this->handleAssignments($claim, $claimDetails);
 
-            $data = Cache::get($this->cacheKey);
-
-            if ($data === null || !is_iterable($data)) {
-                Log::warning('Data fetched from cache is null or not iterable');
-                return null; 
-            }
-
-            return $data;
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching claims: ' . $e->getMessage(), ['exception' => $e]);
-            throw $e; 
-        } catch (Exception $e) {
-            Log::error('Error occurred while fetching claims: ' . $e->getMessage(), ['exception' => $e]);
-            throw $e; 
-        }
+            $this->updateCaches($claimDetails['user_id_ref_by']);
+            $this->logger->info('Claim stored successfully', ['claim_id' => $claim->id]);
+            return $claim;
+        }, 'storing claim');
     }
 
-
-    public function storeData(array $details, array $technicalIds, array $serviceRequestIds, array $causeOfLoss)
+    public function updateData(ClaimDTO $claimDto, UuidInterface $uuid, array $technicalIds, array $serviceRequestIds, array $causeOfLoss): ?object
     {
-        DB::beginTransaction();
-    
-        try {
-        // Generar un UUID para el nuevo claim
-        $details['uuid'] = Uuid::uuid4()->toString();
-        // Asignar el user_id_ref_by al ID proporcionado o al del usuario autenticado si no se envía
-        $details['user_id_ref_by'] = $details['user_id_ref_by'] ?? Auth::id();
-        $details['claim_date'] = now();
-        $details['claim_status'] = 1;
-        $year = date('Y');
-        
-        // Obtener el último claim del año actual
-        $latestClaim = DB::table('claims')
-            ->whereYear('created_at', $year)
-            ->orderBy('id', 'desc')
-            ->first();
-        
-        // Incrementar el número secuencial
-        $sequenceNumber = $latestClaim ? (int)substr($latestClaim->claim_internal_id, -4) + 1 : 1;
-        $sequenceFormatted = str_pad($sequenceNumber, 4, '0', STR_PAD_LEFT); // Formato 0001, 0002, etc.
-        
-        // Construir el ID interno del claim en el formato "VG-CLAIM-2024-0001"
-        $details['claim_internal_id'] = "VG-CLAIM-{$year}-{$sequenceFormatted}";
-        
-        // Aquí llamamos al repositorio de CompanySignature para obtener el signature_path_id
-        $signaturePathId = $this->claimRepositoryInterface->getSignaturePathId(); // Asegúrate de tener este método implementado en el repositorio
-        
-        if (!$signaturePathId) {
-            throw new Exception('Signature Path ID not found');
-        }
-        
-        // Asignar el signature_path_id en los detalles del claim
-        $details['signature_path_id'] = $signaturePathId;
-        
-        // Crear el claim en la base de datos
-        $claim = $this->claimRepositoryInterface->store($details);
-        
-        
-        $claim->causesOfLoss()->attach($causeOfLoss, [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        if (!$claim) {
-            throw new Exception('Claim not created');
-        }
-        
-        // Lógica para guardar AffidavitForm si los datos están presentes
-        if (isset($details['affidavit']) && is_array($details['affidavit'])) {
-            // Generar un UUID para el AffidavitForm
-            $affidavitData = $details['affidavit'];
-            $affidavitData['uuid'] = Uuid::uuid4()->toString();
-
-            // Guardar el AffidavitForm asociado al claim
-            $this->claimRepositoryInterface->storeAffidavitForm($affidavitData, $claim->id);
-        }
-        // Manejar las asignaciones (Alliances, Technicians, etc.)
-            //$this->handleAssignments($claim, array_merge($details, [
-                //'alliance_company_id' => $alliancesIds
-            //]));
+        return $this->transactionService->handleTransaction(function () use ($claimDto, $uuid, $technicalIds, $serviceRequestIds, $causeOfLoss) {
+            $existingClaim = $this->getExistingClaim($uuid);
             
-         // Incluir los technicalIds en el array $details antes de pasarlo
-        $details['technical_user_id'] = $technicalIds;
+            $updateDetails = $this->prepareUpdateDetails($claimDto);
+            $updateDetails['technical_user_id'] = $technicalIds; 
+            $claim = $this->repository->update($updateDetails, $uuid->toString());
+            
+            $this->handleRelatedData($claim, $technicalIds, $serviceRequestIds, $causeOfLoss);
+            $this->handleAssignments($claim, $updateDetails);
+            
+            $this->updateCaches($updateDetails['user_id_ref_by'], $uuid);
+            $this->logger->info('Claim updated successfully', ['claim_id' => $claim->id]);
+            return $claim;
+        }, 'updating claim');
+    }
 
-        // Llamar a handleAssignments con los detalles modificados
-        $this->handleAssignments($claim, $details);
+    public function showData(UuidInterface $uuid): ?object
+    {
+        return $this->userCacheService->getCachedItem(
+            self::CACHE_KEY_CLAIM,
+            $uuid->toString(),
+            fn() => $this->repository->getByUuid($uuid->toString())
+        );
+    }
 
+    public function deleteData(UuidInterface $uuid): bool
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingClaim = $this->getExistingClaim($uuid);
+            
+            $this->repository->delete($uuid->toString());
+            $this->updateCaches($existingClaim->user_id_ref_by, $uuid);
+            
+            $this->logger->info('Claim deleted successfully', ['claim_uuid' => $uuid->toString()]);
+            return true;
+        }, 'deleting claim');
+    }
 
-        // Asociar los service requests con el claim
-        $claim->serviceRequests()->attach($serviceRequestIds, [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+    public function restoreData(UuidInterface $uuid): ?object
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $claim = $this->repository->restore($uuid->toString());
+            $this->updateCaches($claim->user_id_ref_by, $uuid);
+            $this->logger->info('Claim restored successfully', ['claim_id' => $claim->id]);
+            return $claim;
+        }, 'restoring claim');
+    }
 
-        // Actualizar la caché de datos
-        $this->updateDataCache();
+    private function prepareClaimDetails(ClaimDTO $dto): array
+    {
+        $year = (int) date('Y');
+        $sequenceNumber = $this->getNextSequenceNumber($year);
         
-        DB::commit();
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+            'user_id_ref_by' => $dto->userIdRefBy ?? Auth::id(),
+            'claim_date' => now(),
+            'claim_status' => 1,
+            'claim_internal_id' => "VG-CLAIM-{$year}-{$sequenceNumber}",
+            'signature_path_id' => $this->repository->getSignaturePathId(),
+        ];
+    }
+
+    private function prepareUpdateDetails(ClaimDTO $dto): array
+    {
+        $updateDetails = ['user_id_ref_by' => $dto->userIdRefBy ?? Auth::id()];
+
+        foreach (self::CLAIM_FIELDS as $field) {
+            $dtoField = lcfirst(str_replace('_', '', ucwords($field, '_')));
+            if (property_exists($dto, $dtoField) && $dto->$dtoField !== null) {
+                $updateDetails[$field] = $dto->$dtoField instanceof UuidInterface
+                    ? $dto->$dtoField->toString()
+                    : $dto->$dtoField;
+            }
+        }
+
+        return $updateDetails;
+    }
+
+    private function getNextSequenceNumber(int $year): string
+    {
+        return $this->transactionService->handleTransaction(function () use ($year) {
+            $latestClaim = DB::table('claims')
+                ->whereYear('created_at', $year)
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
         
+            $sequenceNumber = $latestClaim ? (int)substr($latestClaim->claim_internal_id, -4) + 1 : 1;
+            return str_pad((string)$sequenceNumber, 4, '0', STR_PAD_LEFT);
+        }, 'getting next sequence number');
+    }
+
+    private function getExistingClaim(UuidInterface $uuid): object
+    {
+        $claim = $this->repository->getByUuid($uuid->toString());
+        if (!$claim) {
+            $this->logger->error('Claim not found', ['uuid' => $uuid->toString()]);
+            throw new ClaimNotFoundException("Claim not found with UUID: {$uuid->toString()}");
+        }
         return $claim;
-        } catch (Exception $ex) {
-        DB::rollBack();
-        Log::error('Error occurred while storing claim: ' . $ex->getMessage(), [
-            'exception' => $ex,
-            'service_request_ids' => $serviceRequestIds,
-        ]);
-        throw new Exception('Error occurred while storing claim: ' . $ex->getMessage());
-        }
     }
 
-
-
-
-   public function updateData(array $updateDetails, string $uuid, array $technicalIds, array $serviceRequestIds, array $causeOfLoss)
+    private function handleRelatedData(object $claim, array $technicalIds, array $serviceRequestIds, array $causeOfLoss): void
     {
-    DB::beginTransaction();
-
-    try {
-        // Obtener el claim existente por UUID
-        $existingClaim = $this->claimRepositoryInterface->getByUuid($uuid);
-
-        $updateDetails['user_id_ref_by'] = $updateDetails['user_id_ref_by'] ?? $existingClaim->user_id_ref_by;
-        // Actualizar el claim en la base de datos
-        $updatedClaim = $this->claimRepositoryInterface->update($updateDetails, $uuid);
-
-        // Actualizar los datos del affidavit si están presentes
-        if (isset($updateDetails['affidavit'])) {
-            $this->claimRepositoryInterface->updateAffidavitForm($updateDetails['affidavit'], $existingClaim->id);
-        }
-
-            // Manejar las asignaciones
-            //$this->handleAssignments($updatedClaim, array_merge($updateDetails, [
-            //'alliance_company_id' => $alliancesIds
-            //]));
-            // Incluir los technicalIds en el array $details antes de pasarlo
-            $updateDetails['technical_user_id'] = $technicalIds;
-
-            // Llamar a handleAssignments con los detalles modificados
-            $this->handleAssignments($updatedClaim, $updateDetails);
-
-           
-      
-         $existingClaim->serviceRequests()->sync($serviceRequestIds, [
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-
-        $existingClaim->causesOfLoss()->sync($causeOfLoss, [
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        // Actualizar la caché de datos
-        $this->updateDataCache();
-        DB::commit();
-
-        return $updatedClaim;
-    } catch (Exception $ex) {
-        DB::rollBack();
-        Log::error('Error occurred while updating claim: ' . $ex->getMessage(), ['exception' => $ex]);
-        throw new Exception('Error occurred while updating claim: ' . $ex->getMessage());
-    }
+        $this->transactionService->handleTransaction(function () use ($claim, $technicalIds, $serviceRequestIds, $causeOfLoss) {
+            $claim->causesOfLoss()->sync($causeOfLoss);
+            $claim->serviceRequests()->sync($serviceRequestIds);
+            
+            if (isset($claim->affidavit) && is_array($claim->affidavit)) {
+                $affidavitData = $claim->affidavit + ['uuid' => Uuid::uuid4()->toString()];
+                $this->repository->storeAffidavitForm($affidavitData, $claim->id);
+            }
+        }, 'handling related data');
     }
 
-
-
-    public function showData(string $uuid)
+    private function handleAssignments(object $claim, array $details): void
     {
-        try {
-            $cacheKey = 'claim_' . $uuid;
-
-            $data = $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-                return $this->claimRepositoryInterface->getByUuid($uuid);
-            });
-
-            return $data;
-        } catch (Exception $ex) {
-            Log::error('Error occurred while retrieving claim: ' . $ex->getMessage(), ['exception' => $ex]);
-            throw new Exception('Error occurred while retrieving claim: ' . $ex->getMessage());
+        foreach (self::ASSIGNMENTS as $key => $model) {
+            $this->handleSingleAssignment($claim, $details, "{$key}_id", $model);
         }
-    }
 
-    public function deleteData(string $uuid)
-    {
-        DB::beginTransaction();
-
-        try {
-            //$existingClaim = $this->claimRepositoryInterface->getByUuid($uuid);
-
-            //if (!$existingClaim || $existingClaim->user_id !== Auth::id()) {
-                //throw new Exception('No permission to delete this claim or claim not found.');
-            //}
-
-            //$associatedCauseOfLoss = $existingClaim->causesOfLoss()->get();
-
-            // Desvincular todas las alianzas asociadas
-            //$existingClaim->causesOfLoss()->detach($associatedCauseOfLoss->pluck('id')->toArray());
-
-            $data = $this->claimRepositoryInterface->delete($uuid);
-
-            $this->baseController->invalidateCache('claim_' . $uuid);
-            $this->updateDataCache();
-            DB::commit();
-
-            return $data;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            Log::error('Error occurred while deleting claim: ' . $ex->getMessage(), ['exception' => $ex]);
-            throw new Exception('Error occurred while deleting claim: ' . $ex->getMessage());
-        }
-    }
-
-    private function handleAssignments($claim, array $details)
-{
-    $this->handleInsuranceCompanyAssignment($claim, $details);
-    $this->handleInsuranceAdjusterAssignment($claim, $details);
-    $this->handlePublicAdjusterAssignment($claim, $details);
-    $this->handlePublicCompanyAssignment($claim, $details);
-   
-    if (isset($details['technical_user_id'])) {
         $this->handleTechnicalUserAssignment($claim, $details);
     }
-    
-    if (isset($details['alliance_company_id'])) {
-        $this->handleAllianceCompanyAssignment($claim, $details);
-    }
-    
-}
 
-private function handleInsuranceCompanyAssignment($claim, array $details)
-{
-    if (isset($details['insurance_company_id'])) {
-        $claim->insuranceCompanyAssignment()->updateOrCreate(
-            ['claim_id' => $claim->id],
-            ['insurance_company_id' => $details['insurance_company_id'], 'assignment_date' => now()]
-        );
-    }
-}
-
-private function handleInsuranceAdjusterAssignment($claim, array $details)
-{
-    if (isset($details['insurance_adjuster_id'])) {
-        $claim->insuranceAdjusterAssignment()->updateOrCreate(
-            ['claim_id' => $claim->id],
-            ['insurance_adjuster_id' => $details['insurance_adjuster_id'], 'assignment_date' => now()]
-        );
-    }
-}
-
-private function handlePublicAdjusterAssignment($claim, array $details)
-{
-    if (isset($details['public_adjuster_id'])) {
-        $publicAdjusterAssignment = $claim->publicAdjusterAssignment()->updateOrCreate(
-            ['claim_id' => $claim->id],
-            ['public_adjuster_id' => $details['public_adjuster_id'], 'assignment_date' => now()]
-        );
-
-        $publicAdjuster = User::findOrFail($details['public_adjuster_id']);
-        
-       // Enviar correo
-    Mail::to($publicAdjuster->email)->send(new PublicAdjusterAssignmentNotification($publicAdjuster, $claim));
-    
-     // Dispatch welcome email
-     //SendMailPublicAdjusterAssignmentNotification::dispatch($publicAdjuster, $claim);
-
-    }
-}
-
-private function handlePublicCompanyAssignment($claim, array $details)
-{
-    if (isset($details['public_company_id'])) {
-        $claim->publicCompanyAssignment()->updateOrCreate(
-            ['claim_id' => $claim->id],
-            ['public_company_id' => $details['public_company_id'], 'assignment_date' => now()]
-        );
-    }
-}
-
-    private function handleTechnicalUserAssignment($claim, array $details)
+    private function handleSingleAssignment(object $claim, array $details, string $idKey, string $model): void
     {
-        // Verifica si se envía un array de técnicos
-        if (isset($details['technical_user_id']) && is_array($details['technical_user_id'])) {
-        $technicalUserIds = $details['technical_user_id'];
+        $id = $details[$idKey] ?? null;
+        $relation = lcfirst($model);
 
-        // Si el array está vacío, eliminamos todas las asignaciones
+        if ($id === null || $id === '' || $id === 0) {
+            $claim->$relation()->delete();
+        } elseif ((int)$id > 0) {
+            $assignment = $claim->$relation()->updateOrCreate(
+                ['claim_id' => $claim->id],
+                ["{$idKey}" => $id, 'assignment_date' => now()]
+            );
+
+            $this->sendAssignmentNotification($model, $id, $assignment, $claim);
+        }
+    }
+
+    private function sendAssignmentNotification(string $model, int $id, $assignment, object $claim): void
+    {
+        if ($model === 'PublicAdjusterAssignment' && ($assignment->wasRecentlyCreated || $assignment->wasChanged("{$model}_id"))) {
+            $publicAdjuster = $this->repository->findByUserId($id);
+            if ($publicAdjuster) {
+                Mail::to($publicAdjuster->email)->send(new PublicAdjusterAssignmentNotification($publicAdjuster, $claim));
+                $this->logger->info('Public adjuster assignment notification sent', ['adjuster_id' => $id, 'claim_id' => $claim->id]);
+            }
+        }
+    }
+
+    private function handleTechnicalUserAssignment(object $claim, array $details): void
+    {
+        $technicalUserIds = $details['technical_user_id'] ?? [];
+    
         if (empty($technicalUserIds)) {
-            $claim->technicalAssignments()->delete(); // Elimina todas las asignaciones
-        } else {
-            // Si hay IDs, actualiza o crea las asignaciones
-            foreach ($technicalUserIds as $technicalUserId) {
-                $technicalAssignment = $claim->technicalAssignments()->updateOrCreate(
-                    ['technical_user_id' => $technicalUserId],
-                    [
-                        'assignment_status' => $details['assignment_status'] ?? 'Pending',
-                        'assignment_date' => now(),
-                        'work_date' => $details['work_date'] ?? null,
-                    ]
-                );
+            $claim->technicalAssignments()->delete();
+            return;
+        }
+    
+        $currentAssignmentIds = $claim->technicalAssignments()->pluck('technical_user_id')->toArray();
+    
+        $claim->technicalAssignments()->whereNotIn('technical_user_id', $technicalUserIds)->delete();
+    
+        foreach ($technicalUserIds as $technicalUserId) {
+            $assignment = $claim->technicalAssignments()->updateOrCreate(
+                ['technical_user_id' => $technicalUserId],
+                [
+                    'assignment_status' => $details['assignment_status'] ?? 'Pending',
+                    'assignment_date' => now(),
+                    'work_date' => $details['work_date'] ?? null,
+                ]
+            );
+            
+            $this->sendTechnicalUserNotification($technicalUserId, $assignment, $claim, $currentAssignmentIds);
+        }
+    }
 
-                $technicalUser = User::findOrFail($technicalUserId);
-
-                // Enviar correo
+    private function sendTechnicalUserNotification(int $technicalUserId, $assignment, object $claim, array $currentAssignmentIds): void
+    {
+        if ($assignment->wasRecentlyCreated || !in_array($technicalUserId, $currentAssignmentIds)) {
+            $technicalUser = $this->repository->findByUserId($technicalUserId);
+            if ($technicalUser) {
                 Mail::to($technicalUser->email)->send(new TechnicalUserAssignmentNotification($technicalUser, $claim));
-            // Dispatch welcome email
-            //SendMailTechnicalUserAssignmentNotification::dispatch($technicalUser, $claim);
-            }
+                $this->logger->info('Technical user assignment notification sent', ['user_id' => $technicalUserId, 'claim_id' => $claim->id]);
             }
         }
     }
 
-
-
-
-    //private function handleAllianceCompanyAssignment($claim, array $details)
-    //{
-        //$allianceCompanyIds = $details['alliance_company_id'] ?? [];
-
-        // Eliminar asignaciones anteriores
-        //$claim->allianceCompanies()->detach();
-
-        // Crear nuevas asignaciones
-        //foreach ($allianceCompanyIds as $companyId) {
-        //$claim->allianceCompanies()->attach($companyId, ['assignment_date' => now()]);
-        //}
-    //}
-
-    private function handleAllianceCompanyAssignment($claim, array $details)
+    private function updateCaches(int $userId, ?UuidInterface $uuid = null): void
     {
-        // Asegurarse de que alliance_company_id sea un arreglo
-        $allianceCompanyIds = is_array($details['alliance_company_id']) ? $details['alliance_company_id'] : [$details['alliance_company_id']];
-
-        // Eliminar asignaciones anteriores
-        $claim->allianceCompanies()->detach();
-
-        // Crear nuevas asignaciones
-        foreach ($allianceCompanyIds as $companyId) {
-            $claim->allianceCompanies()->attach($companyId, ['assignment_date' => now()]);
-        }
-    }
-
-
-
-
-    private function updateDataCache()
-    {
-        $this->cacheKey = 'claims_total_list';
-
-        if (!empty($this->cacheKey)) {
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->claimRepositoryInterface->index();
-            });
-        } else {
-            throw new Exception('Invalid cacheKey provided');
-        }
-    }
-
-    public function restoreData(string $uuid)
-    {
-        try {
-        $data = $this->claimRepositoryInterface->restore($uuid);
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
         
-         // Invalidar el caché del usuario
-        $this->baseController->invalidateCache('claim_' . $uuid);
-
-           // Actualizar la caché de la lista de usuarios
-            $this->updateDataCache();
-        return $data;
-
-        } catch (\Exception $ex) {
-        throw new \Exception('Error occurred while retrieving claim: ' . $ex->getMessage());
+        if ($uuid) {
+            $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_CLAIM, $uuid->toString());
         }
     }
 }

@@ -1,6 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
+
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
@@ -20,135 +23,189 @@ class ClaimRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, array<int, string|Rule>>
      */
- public function rules(): array
-{
-    $isStoreRoute = $this->is('api/claim/store');
-
-    return [
-        // Campos requeridos
-        'property_id' => $isStoreRoute ? 'required|exists:properties,id' : 'sometimes|exists:properties,id',
-        'signature_path_id' => $isStoreRoute ? 'nullable|exists:company_signatures,id' : 'sometimes|exists:company_signatures,id',
-        'type_damage_id' => $isStoreRoute ? 'required|exists:type_damages,id' : 'sometimes|exists:type_damages,id',
-        'user_id_ref_by' => 'nullable|integer|exists:users,id',
-        'policy_number' => $isStoreRoute ? 'required|string|max:255' : 'sometimes|string|max:255',
-
-        // Campos opcionales
-        'claim_internal_id' => 'nullable|string|max:255',
-        'date_of_loss' => 'nullable|string|max:255',
-        'description_of_loss' => 'nullable',
-        'claim_date' => 'nullable|string|max:255',
-        'claim_status' => 'nullable|integer|max:255',
-        'damage_description' => 'nullable|string|max:255',
-        'scope_of_work' => 'nullable',
-        'customer_reviewed' => 'nullable|boolean',
-        'claim_number' => 'nullable|string|max:255',
-        'number_of_floors' => 'nullable|integer|max:10',
-
-        // Alliance company (ID)
-        'alliance_company_id' => 'nullable|integer',
-        // Alliance company (array of IDs)
-        //'alliance_company_id' => $isStoreRoute 
-            //? ['nullable', 'array', 'min:1', 'max:2'] 
-            //: ['nullable', 'array', 'max:2'],
-        //'alliance_company_id.*' => 'integer|exists:alliance_companies,id',
-
-         // Validación para el array de IDs de Service Request
-        'service_request_id' => $isStoreRoute 
-        ? ['required', 'array', 'min:1', 'max:10'] 
-        : ['nullable', 'array', 'max:10'],
-
-        // Validación para cada elemento del array
-        'service_request_id.*' => 'integer|exists:service_requests,id',
-        
-         // Validación para el array de IDs de Cause of Loss
-        'cause_of_loss_id' => $isStoreRoute 
-        ? ['required', 'array', 'min:1', 'max:10'] 
-        : ['nullable', 'array', 'max:10'],
-
-        // Validación para cada elemento del array
-        'cause_of_loss_id.*' => 'integer|exists:service_requests,id',
-
-        // Validación de otros roles específicos
-        'insurance_adjuster_id' => [
-            'nullable',
-            'integer',
-            'exists:users,id',
-            function ($attribute, $value, $fail) {
-                $user = User::find($value);
-                if (!$user || !$user->hasRole('Insurance Adjuster')) {
-                    $fail('The selected user must be an Insurance Adjuster.');
-                }
-            },
-        ],
-        'public_adjuster_id' => [
-            'nullable',
-            'integer',
-            'exists:users,id',
-            function ($attribute, $value, $fail) {
-                $user = User::find($value);
-                if (!$user || !$user->hasRole('Public Adjuster')) {
-                    $fail('The selected user must be a Public Adjuster.');
-                }
-            },
-        ],
-        'public_company_id' => 'nullable|integer|exists:public_companies,id',
-        'insurance_company_id' => 'nullable|integer|exists:insurance_companies,id',
-        'work_date' => 'nullable|string|max:255',
-
-        // Validación para usuarios técnicos
-        'technical_user_id' => 'nullable|array',
-        'technical_user_id.*' => [
-            'integer',
-            'exists:users,id',
-            function ($attribute, $value, $fail) {
-                $user = User::find($value);
-                if (!$user || !$user->hasRole('Technical Services')) {
-                    $fail('The selected user must have the Technical Services role.');
-                }
-            },
-        ],
-
-        // Campos adicionales opcionales
-        'day_of_loss_ago' => 'nullable|string|max:255', 
-        'never_had_prior_loss' => 'nullable|boolean', 
-        'has_never_had_prior_loss' => 'nullable|boolean', 
-        'amount_paid' => 'nullable|numeric|max:99999999.99', 
-        'description' => 'nullable|string', 
-        'mortgage_company_name' => 'nullable|string|max:255',
-        'mortgage_company_phone' => 'nullable|string|max:255', 
-        'mortgage_loan_number' => 'nullable|string|max:255', 
-
-        // Validación para el campo affidavit
-        'affidavit' => 'nullable|array',
-        'affidavit.mortgage_company_name' => 'nullable|string|max:255',
-        'affidavit.mortgage_company_phone' => 'nullable|string|max:255',
-        'affidavit.mortgage_loan_number' => 'nullable|string|max:255',
-        'affidavit.description' => 'nullable|string',
-        'affidavit.amount_paid' => 'nullable|numeric|max:99999999.99',
-        'affidavit.day_of_loss_ago' => 'nullable|string|max:255',
-        'affidavit.never_had_prior_loss' => 'nullable|boolean',
-        'affidavit.has_never_had_prior_loss' => 'nullable|boolean',
-        ];
-}
-
-
-
-
-     public function failedValidation(Validator $validator)
-
+    public function rules(): array
     {
+        $isStoreRoute = $this->is('api/claim/store');
 
-        throw new HttpResponseException(response()->json([
+        return [
+            'property_id' => $this->getFieldRules('exists:properties,id', null, !$isStoreRoute),
+            'signature_path_id' => $this->getFieldRules('exists:company_signatures,id', null, true),
+            'type_damage_id' => $this->getFieldRules('exists:type_damages,id', null, !$isStoreRoute),
+            'user_id_ref_by' => $this->getFieldRules('integer', null, true),
+            'user_id_ref_by.*' => 'exists:users,id',
+            'policy_number' => $this->getFieldRules('string', 255, !$isStoreRoute),
+            'claim_internal_id' => $this->getFieldRules('string', 255, true),
+            'date_of_loss' => $this->getFieldRules('string', 255, true),
+            'description_of_loss' => $this->getFieldRules('string', null, true),
+            'claim_date' => $this->getFieldRules('string', 255, true),
+            'claim_status' => $this->getFieldRules('integer', 255, true),
+            'damage_description' => $this->getFieldRules('string', 255, true),
+            'scope_of_work' => $this->getFieldRules('string', null, true),
+            'customer_reviewed' => $this->getFieldRules('boolean', null, true),
+            'claim_number' => $this->getFieldRules('string', 255, true),
+            'number_of_floors' => $this->getFieldRules('integer', 10, true),
+            'alliance_company_id' => $this->getFieldRules('integer', null, true),
+            'service_request_id' => $this->getArrayFieldRules($isStoreRoute, 1, 10, 'exists:service_requests,id'),
+            'cause_of_loss_id' => $this->getArrayFieldRules($isStoreRoute, 1, 10, 'exists:cause_of_losses,id'),
+            'insurance_adjuster_id' => array_merge(
+                $this->getFieldRules('integer', null, true),
+                ['exists:users,id']
+            ),
+            'public_adjuster_id' => [
+            'integer',
+            'exists:users,id',
+            function ($attribute, $value, $fail) {
+            $this->validatePublicAdjusterUser($attribute, $value, $fail);
+            },
+            ],
+            'public_company_id' => $this->getFieldRules('integer', null, true),
+            'public_company_id.*' => 'exists:public_companies,id',
+            'insurance_company_id' => $this->getFieldRules('integer', null, true),
+            'insurance_company_id.*' => 'exists:insurance_companies,id',
+            'work_date' => $this->getFieldRules('string', 255, true),
+            'technical_user_id' => ['nullable', 'array'],
+            'technical_user_id.*' => [
+                'integer',
+                'exists:users,id',
+                function ($attribute, $value, $fail) {
+                    $this->validateTechnicalUser($attribute, $value, $fail);
+                },
+            ],
+            'day_of_loss_ago' => $this->getFieldRules('string', 255, true),
+            'never_had_prior_loss' => $this->getFieldRules('boolean', null, true),
+            'has_never_had_prior_loss' => $this->getFieldRules('boolean', null, true),
+            'amount_paid' => $this->getFieldRules('numeric', null, true),
+            'description' => $this->getFieldRules('string', null, true),
+            'mortgage_company_name' => $this->getFieldRules('string', 255, true),
+            'mortgage_company_phone' => $this->getFieldRules('string', 255, true),
+            'mortgage_loan_number' => $this->getFieldRules('string', 255, true),
+            'affidavit' => $this->getFieldRules('array', null, true),
+            'affidavit.mortgage_company_name' => $this->getFieldRules('string', 255, true),
+            'affidavit.mortgage_company_phone' => $this->getFieldRules('string', 255, true),
+            'affidavit.mortgage_loan_number' => $this->getFieldRules('string', 255, true),
+            'affidavit.description' => $this->getFieldRules('string', null, true),
+            'affidavit.amount_paid' => $this->getFieldRules('numeric', null, true),
+            'affidavit.day_of_loss_ago' => $this->getFieldRules('string', 255, true),
+            'affidavit.never_had_prior_loss' => $this->getFieldRules('boolean', null, true),
+            'affidavit.has_never_had_prior_loss' => $this->getFieldRules('boolean', null, true),
+        ];
+    }
 
-            'success'   => false,
+    /**
+     * Get the error messages for the defined validation rules.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'required' => 'The :attribute field is required.',
+            'string' => 'The :attribute must be a string.',
+            'integer' => 'The :attribute must be an integer.',
+            'numeric' => 'The :attribute must be a number.',
+            'boolean' => 'The :attribute must be true or false.',
+            'max' => 'The :attribute may not be greater than :max characters.',
+            'email' => 'The :attribute must be a valid email address.',
+            'exists' => 'The selected :attribute is invalid.',
+            'array' => 'The :attribute must be an array.',
+            'min' => 'The :attribute must have at least :min items.',
+        ];
+    }
 
-            'message'   => 'Validation errors',
+    /**
+     * Handle a failed validation attempt.
+     *
+     * @param Validator $validator
+     * @throws HttpResponseException
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(
+            response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422)
+        );
+    }
 
-            'errors'      => $validator->errors()
+    /**
+     * Validate that the user has the Technical Services role.
+     *
+     * @param string $attribute
+     * @param mixed $value
+     * @param callable $fail
+     */
+    protected function validateTechnicalUser($attribute, $value, $fail): void
+    {
+        $user = User::find($value);
+        if (!$user || !$user->hasRole('Technical Services')) {
+            $fail('The selected user must have the Technical Services role.');
+        }
+    }
 
-        ], 422));
+    protected function validatePublicAdjusterUser($attribute, $value, $fail): void
+    {
+        $user = User::find($value);
+        if (!$user || !$user->hasRole('Public Adjuster')) {
+            $fail('The selected user must have the Public Adjuster role.');
+        }
+    }
+    
+    /**
+     * Get the validation rules for a field based on the request method.
+     *
+     * @param string $type
+     * @param int|null $max
+     * @param bool $nullable
+     * @return array<int, string|Rule>
+     */
+    private function getFieldRules(string $type, ?int $max = null, bool $nullable = false): array
+    {
+        $rules = [$type];
 
+        if ($max !== null) {
+            $rules[] = "max:$max";
+        }
+
+        if ($this->isMethod('post')) {
+            array_unshift($rules, $nullable ? 'nullable' : 'required');
+        } elseif ($this->isMethod('put') || $this->isMethod('patch')) {
+            array_unshift($rules, 'sometimes', 'nullable');
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Get the validation rules for an array field.
+     *
+     * @param bool $isRequired
+     * @param int|null $min
+     * @param int|null $max
+     * @param string $itemRules
+     * @return array<int, string|Rule>
+     */
+    private function getArrayFieldRules(bool $isRequired, ?int $min, ?int $max, string $itemRules): array
+    {
+        $rules = ['array'];
+
+        if ($isRequired) {
+            array_unshift($rules, 'required');
+        } else {
+            array_unshift($rules, 'nullable');
+        }
+
+        if ($min !== null) {
+            $rules[] = "min:$min";
+        }
+
+        if ($max !== null) {
+            $rules[] = "max:$max";
+        }
+
+        return $rules;
     }
 }

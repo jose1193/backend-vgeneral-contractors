@@ -3,7 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Claim;
-
+use App\Models\User;
 use App\Models\AffidavitForm;
 use App\Models\CompanySignature;
 
@@ -32,7 +32,7 @@ class ClaimRepository implements ClaimRepositoryInterface
 
     public function update(array $data, string $uuid)
     {
-        $claim = Claim::where('uuid', $uuid)->firstOrFail();
+        $claim = $this->getByUuid($uuid);
         $claim->update($data);
         return $claim;
     }
@@ -44,19 +44,24 @@ class ClaimRepository implements ClaimRepositoryInterface
         return $claim;
     }
 
-    public function getClaimsByUser($user)
+    public function getClaimsByUser(object $user)
     {
         if ($user->hasPermissionTo('Manager', 'api')) {
             // Si el usuario tiene el permiso de "Lead", obtiene todos los claims
-            return Claim::orderBy('id', 'DESC')->get();
+            return Claim::withTrashed()->orderBy('id', 'DESC')->get();
         } else {
-            // De lo contrario, obtiene solo los claims asociados a su id
-            return Claim::withTrashed()->where('user_id_ref_by', $user->id)
+           
+            return Claim::where('user_id_ref_by', $user->id)
                         ->orderBy('id', 'DESC')
                         ->get();
         }
     }
     
+    public function findByUserId(int $userId)
+    {
+            return User::findOrFail($userId);
+    }
+
     public function storeAffidavitForm(array $affidavitDetails, int $claimId)
     {
     $affidavitDetails['claim_id'] = $claimId;

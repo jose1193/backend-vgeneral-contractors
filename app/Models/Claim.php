@@ -69,12 +69,13 @@ class Claim extends Model
         return $this->belongsTo(TypeDamage::class, 'type_damage_id');
     }
 
-     public function allianceCompanies()
+    
+    public function allianceCompanyAssignment()
     {
-        return $this->belongsToMany(AllianceCompany::class, 'claim_alliances', 'claim_id', 'alliance_company_id')
-                    ->withPivot('assignment_date'); 
+        return $this->hasOne(ClaimAlliance::class);
     }
 
+    
      public function customerSignatures()
     {
         return $this->hasMany(ClaimCustomerSignature::class);

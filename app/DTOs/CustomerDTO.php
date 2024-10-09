@@ -29,7 +29,7 @@ class CustomerDTO
             homePhone: $data['home_phone'] ?? null,
             occupation: $data['occupation'] ?? null,
             userId: $data['user_id'] ?? null,
-            signatureData: $data['signature_data'] ?? null // Manejo del nuevo atributo
+            signatureData: $data['signature_data'] ?? null 
         );
     }
 
@@ -44,7 +44,7 @@ class CustomerDTO
             'home_phone' => $this->homePhone,
             'occupation' => $this->occupation,
             'user_id' => $this->userId,
-            'signature_data' => $this->signatureData, // Inclusión del nuevo atributo
+            'signature_data' => $this->signatureData, 
         ];
     }
 }
