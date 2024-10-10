@@ -220,7 +220,7 @@
                                       "
                                                                         align="center">
                                                                         <img align="center" border="0"
-                                                                            src="{{ env('APP_URL') }}/img/logo-white.png"
+                                                                            src="{{ env('APP_URL') }}/img/logo.png"
                                                                             alt="Image" title="Image"
                                                                             style="
                                           outline: none;

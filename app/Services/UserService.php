@@ -26,7 +26,7 @@ class UserService
 
     private const USER_FIELDS = [
         'uuid', 'name', 'last_name', 'username', 'email', 'password', 'phone',
-        'address', 'zip_code', 'city', 'state', 'country', 'latitude', 'longitude',
+        'address', 'address2','zip_code', 'city', 'state', 'country', 'latitude', 'longitude',
         'gender', 'user_role', 'provider', 'provider_id', 'provider_avatar', 'register_date'
     ];
 

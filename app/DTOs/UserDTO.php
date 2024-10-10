@@ -3,11 +3,13 @@
 namespace App\DTOs;
 
 use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+
 
 class UserDTO
 {
     public function __construct(
-        public readonly ?Uuid $uuid,
+        public readonly ?UuidInterface $uuid,
         public readonly string $name,
         public readonly ?string $lastName,
         public readonly ?string $username,
@@ -16,6 +18,7 @@ class UserDTO
         public readonly ?bool $generatePassword,
         public readonly ?string $phone,
         public readonly ?string $address,
+        public readonly ?string $address2,
         public readonly ?string $zipCode,
         public readonly ?string $city,
         public readonly ?string $state,
@@ -42,6 +45,7 @@ class UserDTO
             generatePassword: $data['generate_password'] ?? null,
             phone: $data['phone'] ?? null,
             address: $data['address'] ?? null,
+            address2: $data['address_2'] ?? null,
             zipCode: $data['zip_code'] ?? null,
             city: $data['city'] ?? null,
             state: $data['state'] ?? null,
@@ -56,10 +60,33 @@ class UserDTO
             
         );
     }
-
+    
+    
     public function toArray(): array
     {
-        return array_filter(get_object_vars($this), fn($value) => $value !== null);
+        return array_filter([
+            'uuid' => $this->uuid?->toString(),
+            'name' => $this->name,
+            'last_name' => $this->lastName,
+            'username' => $this->username,
+            'email' => $this->email,
+            'password' => $this->password,
+            'generate_password' => $this->generatePassword,
+            'phone' => $this->phone,
+            'address' => $this->address,
+            'address_2' => $this->address2,
+            'zip_code' => $this->zipCode,
+            'city' => $this->city,
+            'state' => $this->state,
+            'country' => $this->country,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'gender' => $this->gender,
+            'user_role' => $this->userRole,
+            'provider' => $this->provider,
+            'provider_id' => $this->providerId,
+            'provider_avatar' => $this->providerAvatar,
+        ], fn($value) => $value !== null);
     }
 
 }

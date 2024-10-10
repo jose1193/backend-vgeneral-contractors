@@ -30,7 +30,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'address',
-        'addres_2',   
+        'address_2',   
         'zip_code',
         'city',
         'state',
