@@ -27,8 +27,9 @@ class ClaimResource extends JsonResource
             'date_of_loss' => $this->date_of_loss,
             'description_of_loss' => $this->description_of_loss,
             'claim_date' => $this->claim_date,
-            'cause_of_loss' => CauseOfLossResource::collection($this->causesOfLoss),
-            'claim_status' => $this->claimStatu ? $this->claimStatu->claim_status_name : null,
+            'cause_of_loss_id' => CauseOfLossResource::collection($this->causesOfLoss),
+            'claim_status' => $this->claimStatu ? new ClaimStatusResource($this->claimStatu) : null,
+            //'claim_status' => $this->claimStatu ? $this->claimStatu->claim_status_name : null,
             'damage_description' => $this->damage_description,
             'number_of_floors' =>$this->number_of_floors,
             'work_date' =>$this->work_date,
@@ -45,7 +46,10 @@ class ClaimResource extends JsonResource
             // Relación de asignaciones
             'insurance_company_assignment' => $this->insuranceCompanyAssignment ? $this->insuranceCompanyAssignment->insuranceCompany->insurance_company_name : null,
             'insurance_adjuster_assignment' => $this->insuranceAdjusterAssignment ? $this->insuranceAdjusterAssignment->insuranceAdjuster->name : null,
-            'public_adjuster_assignment' => $this->publicAdjusterAssignment ? $this->publicAdjusterAssignment->publicAdjuster->name : null,
+            'public_adjuster_assignment' => $this->publicAdjusterAssignment 
+                ? new UserResource($this->publicAdjusterAssignment->publicAdjuster)
+                : null,
+            //'public_adjuster_assignment' => $this->publicAdjusterAssignment ? $this->publicAdjusterAssignment->publicAdjuster->name : null,
             'public_company_assignment' => $this->publicCompanyAssignment ? $this->publicCompanyAssignment->publicCompany->public_company_name : null,
             //'technical_assignments' => $this->technicalAssignments->map(function ($assignment) {
             //return new UserResource($assignment->technicalUser);

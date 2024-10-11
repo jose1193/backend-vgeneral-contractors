@@ -29,7 +29,7 @@ return new class extends Migration
             $table->string('work_date')->nullable();
             $table->text('damage_description')->nullable();
             $table->text('scope_of_work')->nullable();
-            $table->boolean('customer_reviewed')->default(false);
+            $table->boolean('customer_reviewed')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });

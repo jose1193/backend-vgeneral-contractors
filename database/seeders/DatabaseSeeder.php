@@ -2248,7 +2248,8 @@ $spectatorUser->assignRole($spectatorRole);
         'address' => '3635 N. 1st Ave, Suite 102, Tucson, AZ 85719',
         'phone' => '(520) 888-1234',
         'email' => 'info@acccinsurance.com',
-        'website' => 'https://acccinsurance.com/'
+        'website' => 'https://acccinsurance.com/',
+        
         ],
         [
         'insurance_company_name' => 'Access Insurance Company',
