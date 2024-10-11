@@ -26,8 +26,9 @@ class AllianceCompany extends Model
 
     public function claims()
     {
-        return $this->belongsToMany(Claim::class, 'claim_alliances', 'alliance_company_id', 'claim_id')
-                    ->withPivot('assignment_date'); 
+        return $this->belongsToMany(Claim::class, 'claim_alliances')
+                    ->withPivot('assignment_date')
+                    ->withTimestamps();
     }
 
     public function documentTemplateAlliance()

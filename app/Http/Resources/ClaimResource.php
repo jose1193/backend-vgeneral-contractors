@@ -65,7 +65,7 @@ class ClaimResource extends JsonResource
             }),
            
            
-            'alliance_companies' => new AllianceCompanyResource($this->allianceCompanies), 
+           'alliance_companies' => $this->claimAlliance ? new AllianceCompanyResource($this->claimAlliance->allianceCompany) : null,
             'requested_services' => $this->serviceRequests->map(function ($serviceRequest) {
                 return [
                     'id' => (int) $serviceRequest->id,

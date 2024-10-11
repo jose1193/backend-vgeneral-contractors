@@ -70,11 +70,17 @@ class Claim extends Model
     }
 
     
-    public function allianceCompanyAssignment()
+   public function claimAlliance()
     {
         return $this->hasOne(ClaimAlliance::class);
     }
 
+    public function allianceCompany()
+    {
+        return $this->belongsToMany(AllianceCompany::class, 'claim_alliances')
+                    ->withPivot('assignment_date')
+                    ->withTimestamps();
+    }
     
      public function customerSignatures()
     {
