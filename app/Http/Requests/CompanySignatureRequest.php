@@ -33,6 +33,8 @@ class CompanySignatureRequest extends FormRequest
             'phone' => $this->getFieldRules('string', 20),
             'address' => $this->getFieldRules('string', 255),
             'website' => $this->getFieldRules('string', 255,),
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 

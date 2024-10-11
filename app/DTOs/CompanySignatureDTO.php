@@ -14,6 +14,8 @@ class CompanySignatureDTO
         public readonly string $phone,
         public readonly string $address,
         public readonly string $website,
+        public readonly ?float $latitude,
+        public readonly ?float $longitude,
         public readonly ?int $userId
     ) {}
 
@@ -27,6 +29,8 @@ class CompanySignatureDTO
             phone: $data['phone'],
             address: $data['address'],
             website: $data['website'],
+            latitude: $data['latitude'] ?? null,
+            longitude: $data['longitude'] ?? null,
             userId: $data['user_id'] ?? null
         );
     }
@@ -41,6 +45,8 @@ class CompanySignatureDTO
             'phone' => $this->phone,
             'address' => $this->address,
             'website' => $this->website,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
             'user_id' => $this->userId,
             
         ];

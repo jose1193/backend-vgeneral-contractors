@@ -151,7 +151,7 @@ class CompanySignatureService
             'user_id' => Auth::id(),
         ];
 
-        $fields = ['companyName', 'phone', 'email', 'address', 'website'];
+        $fields = ['companyName', 'phone', 'email', 'address', 'website','latitude','longitude'];
         foreach ($fields as $field) {
             if ($dto->$field !== null) {
                 $updateDetails[Str::snake($field)] = $dto->$field;
