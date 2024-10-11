@@ -29,7 +29,7 @@ class InsuranceCompanyRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
-            'website' => ['nullable', 'string', 'url', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255'],
             'prohibited_alliances' => ['nullable', 'array', 'min:1'],
             'prohibited_alliances.*' => ['integer', 'exists:alliance_companies,id'],
         ];
