@@ -2627,6 +2627,8 @@ $categoriesproducts = [
                 'email' => 'info@vgeneralcontractors.com',
                 'address' => '1302 Waugh Dr # 810 Houston TX 77019',
                 'website' => 'https://vgeneralcontractors.com',
+                'latitude' => 29.75516,
+                'longitude' =>-95.3984135,
                 'user_id' => 1, 
             ]
            
