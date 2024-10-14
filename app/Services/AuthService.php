@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Interfaces\AuthRepositoryInterface;
 use App\DTOs\AuthDTO;
+use App\DTOs\PasswordUpdateDTO;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -60,7 +61,7 @@ class AuthService
         );
     }
 
-    public function updateUserPassword(AuthDTO $dto, User $user): User
+    public function updateUserPassword(PasswordUpdateDTO $dto, User $user): User
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $user) {
             if (!Hash::check($dto->currentPassword, $user->password)) {

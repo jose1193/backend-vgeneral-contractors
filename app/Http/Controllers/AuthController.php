@@ -10,6 +10,8 @@ use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use App\Traits\HandlesApiErrors;
 use App\DTOs\AuthDTO;
+use App\Http\Requests\PasswordUpdateRequest;
+use App\DTOs\PasswordUpdateDTO;
 use Ramsey\Uuid\Uuid;
 use Illuminate\Http\Request;
 
@@ -40,7 +42,7 @@ class AuthController extends BaseController
             'token' => $result['token'],
             'token_type' => 'Bearer',
             'token_created_at' => now()->format('Y-m-d H:i:s'),
-            'user' => new UserResource($result['user']) // Asume que el UserResource ya tiene los campos requeridos
+            'user' => new UserResource($result['user']) 
             ];
 
             return ApiResponseClass::sendSimpleResponse($response, 200);
@@ -79,13 +81,14 @@ class AuthController extends BaseController
     /**
      * Update the authenticated user's password.
      */
-    public function updatePassword(AuthRequest $request): JsonResponse
+    public function updatePassword(PasswordUpdateRequest $request): JsonResponse
     {
         try {
             $validatedData = $request->validated();
-            $dto = AuthDTO::fromArray($validatedData);
-            $user = $this->authService->updateUserPassword($dto, $request->user());
-            return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
+            $dto = PasswordUpdateDTO::fromArray($validatedData);
+            $this->authService->updateUserPassword($dto, $request->user());
+            
+            return response()->json(['success' => 'Password updated successfully']);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error updating password');
         }
