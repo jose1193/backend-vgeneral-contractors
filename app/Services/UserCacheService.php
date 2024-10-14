@@ -23,6 +23,12 @@ class UserCacheService
         $this->cacheService->forget($userCacheKey);
     }
 
+    public function forgetSocialProviderCache(string $cacheKeyPrefix, string $email): void
+    {
+        $userCacheKeyProvider = $this->generateCacheKey($cacheKeyPrefix, (string) $email);
+        $this->cacheService->forget($userCacheKeyProvider);
+    }
+
     // Nueva función para eliminar por UUID
     public function forgetDataCacheByUuid(string $cacheKeyPrefix, string $uuid): void
     {
@@ -61,6 +67,7 @@ class UserCacheService
         $cacheKey = $this->generateCacheKey($cacheKeyPrefix, $itemId);
         return $this->cacheService->getCachedData($cacheKey, self::CACHE_TIME, $dataCallback);
     }
+
 
     private function generateCacheKey(string $prefix, string $suffix): string
     {

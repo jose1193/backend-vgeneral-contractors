@@ -64,7 +64,7 @@ class SocialLoginService
 
     private function getUserByEmail($email)
     {
-        return Cache::remember('user_email_' . $email, 43200, function () use ($email) {
+        return Cache::remember('user_email_provider_' . $email, 43200, function () use ($email) {
             return User::where('email', $email)->first();
         });
     }
@@ -104,7 +104,7 @@ class SocialLoginService
 
     private function cacheUserResource($user)
     {
-        return Cache::remember("user_{$user->id}_resource", 43200, function () use ($user) {
+        return Cache::remember("user_social_provider_{$user->uuid}", 43200, function () use ($user) {
             return new UserResource($user);
         });
     }
