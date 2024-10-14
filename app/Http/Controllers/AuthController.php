@@ -71,7 +71,7 @@ class AuthController extends BaseController
     public function user(Request $request): JsonResponse
     {
         try {
-            $user = $this->authService->getAuthenticatedUser($request->user()->id);
+            $user = $this->authService->getAuthenticatedUser($request->user()->uuid);
             return ApiResponseClass::sendSimpleResponse(new UserResource($user), 200);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error retrieving user details');

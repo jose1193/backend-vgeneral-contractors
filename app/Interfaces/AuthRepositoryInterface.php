@@ -6,6 +6,8 @@ use App\Models\User;
 
 interface AuthRepositoryInterface
 {
+    public function getByUuid(string $uuid);
+    
     /**
      * Find a user by a specific field (email or username).
      *

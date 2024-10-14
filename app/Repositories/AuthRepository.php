@@ -25,6 +25,11 @@ class AuthRepository implements AuthRepositoryInterface
      * @param int $id
      * @return User|null
      */
+    public function getByUuid(string $uuid)
+    {
+        return User::where('uuid', $uuid)->firstOrFail();
+    }
+
     public function findById(int $id): ?User
     {
         return User::find($id);

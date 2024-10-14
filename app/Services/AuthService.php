@@ -52,12 +52,12 @@ class AuthService
         $this->logger->info('User logged out successfully', ['id' => $user->id]);
     }
 
-    public function getAuthenticatedUser(int $userId): User
+    public function getAuthenticatedUser(string $userUuid): User
     {
         return $this->userCacheService->getCachedItem(
             self::CACHE_KEY_USER,
-            $userId,
-            fn() => $this->repository->findById($userId)
+            $userUuid,
+            fn() => $this->repository->getByUuid($userUuid)
         );
     }
 
