@@ -9,6 +9,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class ClaimRequest extends FormRequest
 {
@@ -122,6 +123,12 @@ class ClaimRequest extends FormRequest
      */
     protected function failedValidation(Validator $validator): void
     {
+        // Log the validation errors
+        Log::warning('Claim Request Validation Failed', [
+            'errors' => $validator->errors()->toArray(),
+            'input' => $this->all()
+        ]);
+        
         throw new HttpResponseException(
             response()->json([
                 'success' => false,

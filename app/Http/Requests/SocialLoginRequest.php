@@ -25,7 +25,7 @@ class SocialLoginRequest extends FormRequest
     {
         return [
             'provider' => ['required', 'string', 'min:3', 'max:10'],
-            'access_provider_token' => ['required', 'string', 'max:255'],
+            'access_provider_token' => ['required', 'string', ],
         ];
     }
 
