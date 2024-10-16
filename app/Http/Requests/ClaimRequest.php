@@ -55,11 +55,12 @@ class ClaimRequest extends FormRequest
                 ['exists:users,id']
             ),
             'public_adjuster_id' => [
-            'integer',
-            'exists:users,id',
-            function ($attribute, $value, $fail) {
-            $this->validatePublicAdjusterUser($attribute, $value, $fail);
-            },
+                'nullable',
+                'integer',
+                'exists:users,id',
+                function ($attribute, $value, $fail) {
+                    $this->validatePublicAdjusterUser($attribute, $value, $fail);
+                },
             ],
             'public_company_id' => $this->getFieldRules('integer', null, true),
             'public_company_id.*' => 'exists:public_companies,id',

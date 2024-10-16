@@ -15,7 +15,8 @@ class CustomerDTO
         public readonly ?string $homePhone,
         public readonly ?string $occupation,
         public readonly ?int $userId,
-        public readonly ?string $signatureData 
+        public readonly ?string $signatureData,
+        public readonly ?int $propertyId 
     ) {}
 
     public static function fromArray(array $data): self
@@ -29,7 +30,8 @@ class CustomerDTO
             homePhone: $data['home_phone'] ?? null,
             occupation: $data['occupation'] ?? null,
             userId: $data['user_id'] ?? null,
-            signatureData: $data['signature_data'] ?? null 
+            signatureData: $data['signature_data'] ?? null,
+            propertyId: $data['property_id'] ?? null  
         );
     }
 
@@ -44,7 +46,8 @@ class CustomerDTO
             'home_phone' => $this->homePhone,
             'occupation' => $this->occupation,
             'user_id' => $this->userId,
-            'signature_data' => $this->signatureData, 
+            'signature_data' => $this->signatureData,
+            'property_id' => $this->propertyId 
         ];
     }
 }

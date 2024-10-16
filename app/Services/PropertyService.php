@@ -86,21 +86,38 @@ class PropertyService
     }
 
     public function storeCustomerProperty(array $details, array $customerIds)
-{
-    try {
-        $details['uuid'] = Uuid::uuid4()->toString();
-        $details['user_id'] = Auth::id();
+    {
+        Log::info('Attempting to store customer property', ['details' => $details, 'customerIds' => $customerIds]);
 
-        $customerProperty = $this->propertyRepository->store($details, $customerIds);
+        try {
+            Log::debug('Generating UUID');
+            $details['uuid'] = Uuid::uuid4()->toString();
+            
+           
+            $details['user_id'] = Auth::id();
+            
+            $customerProperty = $this->propertyRepository->store($details, $customerIds);
+            
+            $this->updateCustomerPropertiesCache();
 
-        $this->updateCustomerPropertiesCache();
+            return $customerProperty;
 
-        return $customerProperty;
-    } catch (\Exception $ex) {
-        throw new \Exception('Error occurred while creating customer property: ' . $ex->getMessage());
+        } catch (QueryException $e) {
+            Log::error('Database error occurred while creating customer property', [
+                'error' => $e->getMessage(),
+                'sql' => $e->getSql(),
+                'bindings' => $e->getBindings()
+            ]);
+            throw new \Exception('Database error occurred while creating customer property: ' . $e->getMessage());
+
+        } catch (\Exception $ex) {
+            Log::error('Error occurred while creating customer property', [
+                'error' => $ex->getMessage(),
+                'trace' => $ex->getTraceAsString()
+            ]);
+            throw new \Exception('Error occurred while creating customer property: ' . $ex->getMessage());
+        }
     }
-}
-
     public function showCustomerProperty(string $uuid)
     {
         try {

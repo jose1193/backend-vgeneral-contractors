@@ -39,7 +39,7 @@ class ClaimService
         'insurance_adjuster' => 'InsuranceAdjusterAssignment',
         'public_adjuster' => 'PublicAdjusterAssignment',
         'public_company' => 'PublicCompanyAssignment',
-        'alliance_company' => 'AllianceCompanyAssignment',
+        'alliance_company' => 'claimAlliance',
     ];
 
     public function __construct(

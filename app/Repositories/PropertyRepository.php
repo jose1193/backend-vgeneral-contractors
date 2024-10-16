@@ -19,33 +19,31 @@ class PropertyRepository implements PropertyRepositoryInterface
         return Property::where('uuid', $uuid)->firstOrFail();
     }
 
+    public function findById(int $id)
+    {
+        return Property::findOrFail($id);
+    }
+
+
      public function store(array $data, array $customers = [])
     {
-        \DB::beginTransaction();
-
-        try {
+        return DB::transaction(function () use ($data, $customers) {
             $property = Property::create($data);
 
             if (!empty($customers)) {
-                $property->customers()->attach($customers[0], ['role' => 'owner']);
-                if (isset($customers[1])) {
-                    $property->customers()->attach($customers[1], ['role' => 'co-owner']);
+                foreach ($customers as $index => $customerId) {
+                    $role = $this->determineRole($index);
+                    $property->customers()->attach($customerId, ['role' => $role]);
                 }
             }
 
-            \DB::commit();
             return $property;
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            throw $e;
-        }
+        });
     }
 
     public function update(array $data, $uuid, array $customers = [])
     {
-        \DB::beginTransaction();
-
-        try {
+        return DB::transaction(function () use ($data, $uuid, $customers) {
             $property = $this->getByUuid($uuid);
 
             if (!$property) {
@@ -57,20 +55,16 @@ class PropertyRepository implements PropertyRepositoryInterface
             // Detach existing customers
             $property->customers()->detach();
 
-            // Attach new customers
+            // Attach new customers with appropriate roles
             if (!empty($customers)) {
-                $property->customers()->attach($customers[0], ['role' => 'owner']);
-                if (isset($customers[1])) {
-                    $property->customers()->attach($customers[1], ['role' => 'co-owner']);
+                foreach ($customers as $index => $customerId) {
+                    $role = $this->determineRole($index);
+                    $property->customers()->attach($customerId, ['role' => $role]);
                 }
             }
 
-            \DB::commit();
             return $property;
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            throw $e;
-        }
+        });
     }
 
 
@@ -79,5 +73,17 @@ class PropertyRepository implements PropertyRepositoryInterface
         $property = Property::where('uuid', $uuid)->firstOrFail();
 
         return $property->delete();
+    }
+
+     private function determineRole(int $index): string
+    {
+        switch ($index) {
+            case 0:
+                return 'owner';
+            case 1:
+                return 'co-owner';
+            default:
+                return 'additional-signer';
+        }
     }
 }

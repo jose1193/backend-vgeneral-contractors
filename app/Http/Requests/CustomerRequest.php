@@ -8,6 +8,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 use App\Models\Customer;
 
 class CustomerRequest extends FormRequest
@@ -27,6 +28,7 @@ class CustomerRequest extends FormRequest
             'home_phone' => ['nullable', 'string', 'max:20'],
             'occupation' => ['nullable', 'string', 'max:40', 'regex:/^[a-zA-Z\s]+$/'],
             'signature_data' => ['nullable', 'string'],
+            'property_id' => ['nullable', 'integer', 'exists:properties,id'],
         ];
 
         if ($this->isMethod('put') || $this->isMethod('patch')) {
@@ -58,11 +60,18 @@ class CustomerRequest extends FormRequest
             'email' => 'The :attribute must be a valid email address.',
             'regex' => 'The :attribute format is invalid.',
             'email.unique' => 'This email is already registered.',
+            'property_id.exists' => 'The selected property does not exist.',
         ];
     }
 
     protected function failedValidation(Validator $validator): void
     {
+        // Log the validation errors
+        Log::warning('Customer Request Validation Failed', [
+            'errors' => $validator->errors()->toArray(),
+            'input' => $this->all()
+        ]);
+
         throw new HttpResponseException(
             response()->json([
                 'success' => false,

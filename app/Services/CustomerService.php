@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Interfaces\CustomerRepositoryInterface;
+use App\Interfaces\PropertyRepositoryInterface;
 use App\DTOs\CustomerDTO;
 use Exception;
 use Ramsey\Uuid\Uuid;
@@ -23,6 +24,7 @@ class CustomerService
 
     public function __construct(
         private readonly CustomerRepositoryInterface $repository,
+        private readonly PropertyRepositoryInterface $propertyRepository,
         private readonly TransactionService $transactionService,
         private readonly CacheService $cacheService,
         private readonly UserCacheService $userCacheService
@@ -42,9 +44,56 @@ class CustomerService
         return $this->transactionService->handleTransaction(function () use ($customerDto) {
             $customerDetails = $this->prepareCustomerDetails($customerDto);
             $customer = $this->repository->store($customerDetails);
+
+            if ($customerDto->propertyId) {
+                $this->associateCustomerWithProperty($customer->id, $customerDto->propertyId);
+            }
+
             $this->updateCaches(Auth::id());
             return $customer;
         }, 'storing customer');
+    }
+
+    private function associateCustomerWithProperty(int $customerId, int $propertyId): void
+    {
+        $property = $this->propertyRepository->findById($propertyId);
+        if (!$property) {
+            throw new Exception("Property not found with ID: {$propertyId}");
+        }
+
+        $existingCustomers = $property->customers()->orderBy('customer_properties.created_at')->get();
+        $role = $this->determineCustomerRole($existingCustomers->count());
+
+        $customerIds = $existingCustomers->pluck('id')->push($customerId)->unique()->values()->toArray();
+
+        $this->propertyRepository->update(
+            [],  
+            $property->uuid,
+            $customerIds
+        );
+
+        // Update roles for all customers
+        $this->updateCustomerRoles($property, $customerIds);
+    }
+
+    private function determineCustomerRole(int $existingCustomerCount): string
+    {
+        switch ($existingCustomerCount) {
+            case 0:
+                return 'owner';
+            case 1:
+                return 'co-owner';
+            default:
+                return 'additional-signer';
+        }
+    }
+
+    private function updateCustomerRoles($property, array $customerIds): void
+    {
+        foreach ($customerIds as $index => $customerId) {
+            $role = $this->determineCustomerRole($index);
+            $property->customers()->updateExistingPivot($customerId, ['role' => $role]);
+        }
     }
 
     public function updateCustomer(CustomerDTO $customerDto, UuidInterface $uuid): ?object

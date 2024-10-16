@@ -30,6 +30,8 @@ class PropertyResource extends JsonResource
              return [
                 'id' => (int) $customer->id,
                 'name' => $customer->name . ' ' . $customer->last_name,
+                'email' => $customer->email,
+                'cell_phone' => $customer->cell_phone,
                 'role' => $customer->pivot->role
             ];
             }),

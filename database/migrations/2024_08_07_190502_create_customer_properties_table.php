@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('property_id')->constrained('properties')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignId('customer_id')->constrained('customers')->onUpdate('cascade')->onDelete('cascade');
-            $table->enum('role', ['owner', 'co-owner']); 
+            $table->enum('role', ['owner', 'co-owner', 'additional-signer']);
             $table->timestamps();
         });
     }
