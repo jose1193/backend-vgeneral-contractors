@@ -41,8 +41,8 @@ class PropertyRequest extends FormRequest
             'property_longitude' => 'nullable|numeric|between:-180,180',
             'property_country' => 'nullable|string|max:255',
             'customer_id' => $isStoreRoute
-                ? ['required', 'array', 'min:1', 'max:2']
-                : ['nullable', 'array', 'max:2'],
+                ? ['required', 'array', 'min:1', 'max:5']
+                : ['nullable', 'array', 'max:5'],
             'customer_id.*' => 'integer|exists:customers,id',
         ];
     }
