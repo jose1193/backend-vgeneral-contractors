@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Interfaces\ClaimRepositoryInterface;
 use App\DTOs\ClaimDTO;
+use App\DTOs\ClaimAgreementFullDTO;
 use Exception;
 use App\Models\User;
 use Ramsey\Uuid\Uuid;
@@ -46,7 +47,8 @@ class ClaimService
         private readonly ClaimRepositoryInterface $repository,
         private readonly TransactionService $transactionService,
         private readonly UserCacheService $userCacheService,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ClaimAgreementFullService $claimAgreementFullService
     ) {}
 
     public function all(): Collection
@@ -67,12 +69,16 @@ class ClaimService
             $this->handleRelatedData($claim, $technicalIds, $serviceRequestIds, $causeOfLoss);
             $this->handleAssignments($claim, $claimDetails);
 
+            // Generate and store the agreement
+            $this->generateClaimAgreement($claim);
+
             $this->updateCaches($claimDetails['user_id_ref_by']);
             $this->logger->info('Claim stored successfully', ['claim_id' => $claim->id]);
             return $claim;
         }, 'storing claim');
     }
 
+    
     public function updateData(ClaimDTO $claimDto, UuidInterface $uuid, array $technicalIds, array $serviceRequestIds, array $causeOfLoss): ?object
     {
         return $this->transactionService->handleTransaction(function () use ($claimDto, $uuid, $technicalIds, $serviceRequestIds, $causeOfLoss) {
@@ -264,6 +270,26 @@ class ClaimService
                 Mail::to($technicalUser->email)->send(new TechnicalUserAssignmentNotification($technicalUser, $claim));
                 $this->logger->info('Technical user assignment notification sent', ['user_id' => $technicalUserId, 'claim_id' => $claim->id]);
             }
+        }
+    }
+
+    private function generateClaimAgreement(object $claim): void
+    {
+        try {
+            $agreementDto = new ClaimAgreementFullDTO(
+                uuid: null,
+                claimUuid: $claim->uuid,
+                fullPdfPath: null,
+                agreementType: 'Agreement',
+                generatedBy: Auth::id()
+            );
+            
+            $agreement = $this->claimAgreementFullService->storeData($agreementDto);
+            $this->logger->info('Claim agreement generated automatically', ['claim_id' => $claim->id, 'agreement_id' => $agreement->id]);
+        } catch (Exception $e) {
+            $this->logger->error('Failed to generate claim agreement automatically', ['claim_id' => $claim->id, 'error' => $e->getMessage()]);
+            // Note: We're not re-throwing the exception here to avoid rolling back the claim creation
+            // You might want to handle this differently based on your business requirements
         }
     }
 

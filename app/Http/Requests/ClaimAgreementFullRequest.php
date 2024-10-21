@@ -5,9 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Validation\Rule;
-use App\Models\Claim;
-use App\Models\ClaimAgreementFull;
+use Illuminate\Support\Facades\Log;
 
 class ClaimAgreementFullRequest extends FormRequest
 {
@@ -25,70 +23,47 @@ class ClaimAgreementFullRequest extends FormRequest
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
-{
-    $isStoreRoute = $this->is('api/claim-agreement/store');
+    {
+        $rules = [
+            'claim_uuid' => ['required', 'string', 'max:36'],
+            'agreement_type' => ['required', 'string', 'in:Agreement,Agreement Full'],
+        ];
 
-    return [
-        'claim_uuid' => [
-            'required',
-            'string',
-            'max:255',
-            function ($attribute, $value, $fail) use ($isStoreRoute) {
-                if ($isStoreRoute) {
-                    // Buscar el claim por UUID
-                    $claim = Claim::where('uuid', $value)->first();
+        if ($this->isMethod('put') || $this->isMethod('patch')) {
+            $rules['agreement_type'] = ['sometimes', 'string', 'in:Agreement,Agreement Full'];
+        }
 
-                    if ($claim) {
-                        // Verificar la existencia del claim_id en fulls
-                        $exists = ClaimAgreementFull::where('claim_id', $claim->id)
-                            ->where('agreement_type', $this->agreement_type) // Verify the type as well
-                            ->exists();
-
-                        if ($exists) {
-                            $fail('A claim agreement full with this agreement type already exists.');
-                        }
-                    } else {
-                        $fail('The selected claim is invalid.');
-                    }
-                }
-            }
-        ],
-
-        'agreement_type' => [
-            $isStoreRoute ? 'required' : 'nullable',
-            'string',
-            'in:Agreement,Agreement Full',
-            function ($attribute, $value, $fail) {
-                // Check for duplicate agreement_type for the same claim_uuid
-                $claim = Claim::where('uuid', $this->claim_uuid)->first();
-
-                if ($claim) {
-                    $exists = ClaimAgreementFull::where('claim_id', $claim->id)
-                        ->where('agreement_type', $value)
-                        ->exists();
-
-                    if ($exists) {
-                        $fail('A claim agreement full with this agreement type already exists.');
-                    }
-                }
-            }
-        ],
-    ];
+        return $rules;
     }
 
-    public function failedValidation(Validator $validator)
-
+    /**
+     * Get custom error messages for the request.
+     */
+    public function messages(): array
     {
+        return [
+            'required' => 'The :attribute field is required.',
+            'string' => 'The :attribute must be a string.',
+            'max' => 'The :attribute may not be greater than :max characters.',
+            'in' => 'The selected :attribute is invalid.',
+        ];
+    }
+
+    /**
+     * Handle a failed validation attempt.
+     */
+    protected function failedValidation(Validator $validator): void
+    {
+        // Log the validation errors
+        Log::warning('Claim Agreement Full Request Validation Failed', [
+            'errors' => $validator->errors()->toArray(),
+            'input' => $this->all()
+        ]);
 
         throw new HttpResponseException(response()->json([
-
-            'success'   => false,
-
-            'message'   => 'Validation errors',
-
-            'errors'      => $validator->errors()
-
+            'success' => false,
+            'message' => 'Validation errors',
+            'errors' => $validator->errors()
         ], 422));
-
     }
 }

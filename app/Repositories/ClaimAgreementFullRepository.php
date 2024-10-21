@@ -40,14 +40,14 @@ class ClaimAgreementFullRepository implements ClaimAgreementFullRepositoryInterf
     return $agreement;
  }
     
-    public function delete(string $uuid)
+    public function delete(string $uuid): bool
     {
         $agreement = ClaimAgreementFull::where('uuid', $uuid)->firstOrFail();
-        $agreement->delete();
-        return $agreement;
+        return $agreement->delete();
+       
     }
 
-   public function getClaimAgreementByUser($user)
+   public function getClaimAgreementByUser(object $user)
     {
     if ($user->hasPermissionTo('Director Assistant', 'api')) {
         // Si el usuario tiene el permiso de "Super Admin", obtiene todos los archivos
@@ -65,5 +65,22 @@ class ClaimAgreementFullRepository implements ClaimAgreementFullRepositoryInterf
     public function getByTemplateType(string $templateType)
     {
     return DocumentTemplate::where('template_type',$templateType)->firstOrFail();
+    }
+
+    public function checkClaimAgreementExists(string $claimUuid, string $agreementType): bool
+    {
+        $claim = Claim::where('uuid', $claimUuid)->first();
+        if (!$claim) {
+            return false;
+        }
+
+        return ClaimAgreementFull::where('claim_id', $claim->id)
+            ->where('agreement_type', $agreementType)
+            ->exists();
+    }
+
+    public function isClaimValid(string $claimUuid): bool
+    {
+        return Claim::where('uuid', $claimUuid)->exists();
     }
 }

@@ -62,6 +62,12 @@ class CustomerService
         }
 
         $existingCustomers = $property->customers()->orderBy('customer_properties.created_at')->get();
+        
+        // Check if the property already has 3 customers
+        if ($existingCustomers->count() >= 3) {
+            throw new Exception("This property already has the maximum number of customers (3) associated with it.");
+        }
+
         $role = $this->determineCustomerRole($existingCustomers->count());
 
         $customerIds = $existingCustomers->pluck('id')->push($customerId)->unique()->values()->toArray();

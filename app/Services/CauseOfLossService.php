@@ -128,8 +128,9 @@ class CauseOfLossService
         $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, Auth::id());
         $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
         
-        if ($uuid) {
-            $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_CAUSE_OF_LOSS, $uuid->toString());
+        if ($uuid !== null) {
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_CAUSE_OF_LOSS, $uuid->toString());
         }
+
     }
 }

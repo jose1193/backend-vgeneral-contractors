@@ -29,7 +29,7 @@ class UserCacheService
         $this->cacheService->forget($userCacheKeyProvider);
     }
 
-    // Nueva función para eliminar por UUID
+   
     public function forgetDataCacheByUuid(string $cacheKeyPrefix, string $uuid): void
     {
         $cacheKey = $this->generateCacheKey($cacheKeyPrefix, $uuid);
