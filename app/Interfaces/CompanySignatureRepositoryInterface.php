@@ -12,4 +12,6 @@ interface CompanySignatureRepositoryInterface
     
     public function findByUserId(int $userId);
     public function findFirst();
+
+    public function getCompanySignature(): ?object;
 }

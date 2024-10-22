@@ -1,192 +1,178 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Interfaces\DocumentTemplateRepositoryInterface;
-use App\Http\Controllers\BaseController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
+use App\Interfaces\CompanySignatureRepositoryInterface;
+use App\DTOs\DocumentTemplateDTO;
+use App\Exceptions\UnauthorizedException;
+use App\Exceptions\TemplateNotFoundException;
 use Exception;
-use Illuminate\Database\QueryException;
-use App\Helpers\ImageHelper;
+
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
+use Psr\Log\LoggerInterface;
 
 class DocumentTemplateService
 {
-    protected $serviceData;
-    protected $baseController;
-    protected $cacheTime = 720; 
+    private const CACHE_TIME = 720; // minutes
+    private const CACHE_KEY_LIST = 'document_templates_user_list_';
+    private const CACHE_KEY_TEMPLATE = 'document_template_';
+    private const TEMPLATE_S3_PATH = 'public/document_templates';
 
     public function __construct(
-        DocumentTemplateRepositoryInterface $serviceData,
-        BaseController $baseController
-    ) {
-        $this->serviceData = $serviceData;
-        $this->baseController = $baseController;
-    }
+        private readonly DocumentTemplateRepositoryInterface $repository,
+         private readonly CompanySignatureRepositoryInterface $companySignatureRepository,
+        private readonly S3Service $s3Service,
+        private readonly TransactionService $transactionService,
+        private readonly UserCacheService $userCacheService,
+        private readonly LoggerInterface $logger
+    ) {}
 
-    private function getUserId()
+    public function all(): Collection
     {
-        return Auth::id();
+        return $this->userCacheService->getCachedUserList(
+            self::CACHE_KEY_LIST,
+            Auth::id(),
+            fn() => $this->repository->getTemplatesByUser(Auth::user())
+        );
     }
 
-    public function all()
+    public function storeData(DocumentTemplateDTO $dto): object
     {
-        $userId = $this->getUserId();
-        $cacheKey = 'document_templates_total_list_' . $userId;
+        return $this->transactionService->handleTransaction(function () use ($dto) {
+            $user = $this->getAuthenticatedUser();
+            $this->validateSuperAdminPermission();
 
-        return $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($userId) {
-            return $this->serviceData->getDocumentTemplatesByUser(Auth::user());
-        });
+            $details = $this->prepareTemplateDetails($dto);
+            $template = $this->createTemplate($details);
+
+            $this->updateCaches(Auth::id(), Uuid::fromString($template->uuid));
+            $this->logger->info('Document template stored successfully', ['uuid' => $template->uuid]);
+            return $template;
+        }, 'storing document template');
     }
 
-    public function storeData(array $details)
+    public function updateData(DocumentTemplateDTO $dto, UuidInterface $uuid): object
     {
-        return $this->handleTransaction(function () use ($details) {
-            try {
-                // Store the file in S3
-                $storedFilePath = ImageHelper::storeFile($details['template_path'], 'public/document_templates');
+        return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
+            $this->validateSuperAdminPermission();
+            $existingTemplate = $this->getExistingTemplate($uuid);
 
-                $signature = $this->serviceData->getCompanySignature();
+            $updateDetails = $this->prepareUpdateDetails($dto, $uuid, $existingTemplate);
+            $template = $this->repository->update($updateDetails, $uuid->toString());
 
-                $details['uuid'] = Uuid::uuid4()->toString();
-                $details['uploaded_by'] = $this->getUserId();
-                $details['signature_path_id'] = $signature->id;
-                $details['template_path'] = $storedFilePath;
-
-                // Store the template information in the database
-                $template = $this->serviceData->store($details);
-
-                $this->updateDataCache();
-                return $template;
-
-            } catch (Exception $e) {
-                $this->handleException($e, 'storing document template');
-            }
-        });
+            $this->updateCaches(Auth::id(), $uuid);
+            
+            $this->logger->info('Document template updated successfully', ['uuid' => $uuid->toString()]);
+            return $template;
+        }, 'updating document template');
     }
 
-    public function updateData(array $updateDetails, string $uuid)
- {
-    return $this->handleTransaction(function () use ($updateDetails, $uuid) {
-        try {
-            $existingTemplate = $this->serviceData->getByUuid($uuid);
-            Log::info('Existing Template:', ['template' => $existingTemplate]);
+    public function showData(UuidInterface $uuid): ?object
+    {
+        return $this->userCacheService->getCachedItem(
+            self::CACHE_KEY_TEMPLATE,
+            $uuid->toString(),
+            fn() => $this->repository->getByUuid($uuid->toString())
+        );
+    }
 
-            if (isset($updateDetails['template_path'])) {
-                // Delete the existing file from S3
-                if ($existingTemplate && $existingTemplate->template_path) {
-                    Log::info('Deleting old template path from S3:', ['path' => $existingTemplate->template_path]);
-                    ImageHelper::deleteFileFromStorage($existingTemplate->template_path);
-                }
+    public function deleteData(UuidInterface $uuid): bool
+    {
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $this->validateSuperAdminPermission();
+            $existingTemplate = $this->getExistingTemplate($uuid);
 
-                // Store the new file in S3
-                $newFilePath = ImageHelper::storeFile($updateDetails['template_path'], 'public/document_templates/');
-                $updateDetails['template_path'] = $newFilePath;
-            }
+            $this->repository->delete($uuid->toString());
+            $this->s3Service->deleteFileFromStorage($existingTemplate->template_path);
 
-            // Update the template information in the database
-            $updatedTemplate = $this->serviceData->update($updateDetails, $uuid);
-            Log::info('Updated Template:', ['template' => $updatedTemplate]);
+            $this->updateCaches(Auth::id(), $uuid);
 
-            $this->updateDataCache();
-            return $updatedTemplate;
+            $this->logger->info('Document template deleted successfully', ['uuid' => $uuid->toString()]);
+            return true;
+        }, 'deleting document template');
+    }
 
-        } catch (Exception $e) {
-            $this->handleException($e, 'updating document template');
+    private function getAuthenticatedUser()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            throw new Exception("No authenticated user found");
         }
-    });
- }
-
-
-    public function showData(string $uuid)
-    {
-        $cacheKey = 'document_template_' . $uuid;
-
-        return $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-            try {
-                return $this->serviceData->getByUuid($uuid);
-            } catch (Exception $e) {
-                $this->handleException($e, 'fetching document template');
-                return null;
-            }
-        });
+        return $user;
     }
 
-    public function deleteData(string $uuid)
- {
-    return $this->handleTransaction(function () use ($uuid) {
-        try {
-            $cacheKey = 'document_template_' . $uuid;
-            $existingTemplate = $this->serviceData->getByUuid($uuid);
-
-            if (!$existingTemplate) {
-                throw new \Exception("Template not found");
-            }
-
-            // Delete the template from the database
-            $this->serviceData->delete($uuid);
-
-            // Delete the file from S3
-            $deleted = ImageHelper::deleteFileFromStorage($existingTemplate->template_path);
-
-            if (!$deleted) {
-                throw new \Exception("Failed to delete file from S3");
-            }
-
-            // Invalidate the cache
-            $this->baseController->invalidateCache($cacheKey);
-            $this->updateDataCache();
-
-        } catch (\Exception $e) {
-            $this->handleException($e, 'deleting document template');
-            // Optionally rethrow the exception if you need to handle it further up the call stack
-            throw $e;
-        }
-    });
- }
-
-
-    private function handleTransaction(callable $callback)
+    private function validateSuperAdminPermission(): void
     {
-        DB::beginTransaction();
-        try {
-            $result = $callback();
-            DB::commit();
-            return $result;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            $this->handleException($ex, 'transaction');
-            throw $ex;
+        $user = Auth::user();
+        if (!$user || !$this->repository->isSuperAdmin(Auth::id())) {
+            throw new UnauthorizedException("Unauthorized access. Only super admins can perform this operation.");
         }
     }
 
-    private function handleException(Exception $e, string $context)
+    private function prepareTemplateDetails(DocumentTemplateDTO $dto): array
     {
-        Log::error("Error occurred while {$context}: " . $e->getMessage(), [
-            'exception' => $e,
-            'stack_trace' => $e->getTraceAsString(),
-            'user_id' => Auth::id(),
-            'context' => $context
-        ]);
-
-        throw $e;
+        $companySignature = $this->companySignatureRepository->findFirst();
+        
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+            'uploaded_by' => Auth::id(),
+            'signature_path_id' => $companySignature->id,
+        ];
     }
 
-    private function updateDataCache()
+    private function getExistingTemplate(UuidInterface $uuid): object
     {
-        $userId = Auth::id();
-        $cacheKey = 'document_templates_total_list_' . $userId;
-
-        if (!empty($cacheKey)) {
-            $this->baseController->refreshCache($cacheKey, $this->cacheTime, function () {
-                return $this->serviceData->getDocumentTemplatesByUser(Auth::user());
-            });
-        } else {
-            throw new \Exception('Invalid cacheKey provided');
+        $template = $this->repository->getByUuid($uuid->toString());
+        if (!$template) {
+            throw new TemplateNotFoundException("Template not found");
         }
+        return $template;
     }
 
-    
+    private function prepareUpdateDetails(DocumentTemplateDTO $dto, UuidInterface $uuid, object $existingTemplate): array
+    {
+        $updateDetails = $dto->toArray();
+        $updateDetails['uuid'] = $uuid->toString();
+        $updateDetails['uploaded_by'] = Auth::id();
+
+        if ($dto->templatePath !== null) {
+            $updateDetails['template_path'] = $this->handleTemplatePathUpdate(
+                $dto->templatePath, 
+                $existingTemplate->template_path
+            );
+        }
+
+        return $updateDetails;
+    }
+
+    private function handleTemplatePathUpdate(string $newTemplatePath, string $existingPath): string
+    {
+        $this->s3Service->deleteFileFromStorage($existingPath);
+        return $this->s3Service->storeFile($newTemplatePath, self::TEMPLATE_S3_PATH);
+    }
+
+    private function updateCaches(int $userId, UuidInterface $uuid): void
+    {
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_TEMPLATE, $uuid->toString());
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
+    }
+
+    private function createTemplate(array $details): object
+    {
+        if (isset($details['template_path'])) {
+            $details['template_path'] = $this->s3Service->storeFile(
+                $details['template_path'], 
+                self::TEMPLATE_S3_PATH
+            );
+        }
+        return $this->repository->store($details);
+    }
 }

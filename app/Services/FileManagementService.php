@@ -26,7 +26,7 @@ class FileManagementService
     {
         $prefix = $agreementType === 'Agreement Full' ? 'agreement_full_' : 'agreement_preview_';
         $identifier = Str::slug($clientNamesFile, '_');
-        return "{$prefix}{$identifier}_{$timestamp}.pdf";
+        return "{$prefix}{$identifier}_{$timestamp}.docx";
     }
 
     public function cleanUpTempFiles(?string $localTempPath, ?string $processedWordPath): void

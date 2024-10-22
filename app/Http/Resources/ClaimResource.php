@@ -84,7 +84,7 @@ class ClaimResource extends JsonResource
                 'uuid' => $agreement->uuid,
                 'claim_id' => (int) $agreement->claim_id,
                 'full_pdf_path' => asset($agreement->full_pdf_path),
-                'agreement_type' => $agreement->agreement_type,  // Aquí puedes hacer una conversión si es necesario
+                'agreement_type' => $agreement->agreement_type,  
                 'generated_by' => $agreement->generatedBy ? $agreement->generatedBy->name . ' ' . $agreement->generatedBy->last_name : null,
             ];
         }),

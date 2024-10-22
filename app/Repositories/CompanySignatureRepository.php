@@ -44,9 +44,13 @@ class CompanySignatureRepository implements CompanySignatureRepositoryInterface
     return CompanySignature::where('user_id', $userId)->first();
     }
 
- public function findFirst()
+    public function findFirst()
     {
         return CompanySignature::first();
     }
 
+    public function getCompanySignature(): ?object
+    {
+        return CompanySignature::firstOrFail();
+    }
 }
