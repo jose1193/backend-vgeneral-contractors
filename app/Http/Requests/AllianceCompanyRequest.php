@@ -31,7 +31,7 @@ class AllianceCompanyRequest extends FormRequest
             'email' => ['nullable', 'string', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
-            'website' => ['nullable', 'string', 'url', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($this->isMethod('post')) {
