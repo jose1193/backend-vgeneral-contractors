@@ -31,7 +31,7 @@ class PublicCompanyRequest extends FormRequest
             'unit' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255'],
-            'website' => ['nullable', 'string', 'url', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255'],
         ];
 
         if ($this->isMethod('put') || $this->isMethod('patch')) {
