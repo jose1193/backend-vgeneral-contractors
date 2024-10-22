@@ -87,10 +87,9 @@ class PublicCompanyService
     private function ensureCompanyNameIsUnique(string $name, UuidInterface $excludeUuid): void
     {
         try {
-            // Buscar si existe una compañía con el mismo nombre
+        
             $existingCompany = $this->repository->findByName($name);
             
-            // Si existe una compañía con ese nombre y es diferente a la que estamos actualizando
             if ($existingCompany && $existingCompany->uuid !== $excludeUuid->toString()) {
                 throw new Exception("A public company with this name already exists.");
             }
