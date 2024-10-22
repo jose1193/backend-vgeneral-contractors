@@ -2606,6 +2606,14 @@ $categoriesproducts = [
                 'website' => 'https://servxpressrestorations.com/restoration/',
                 'user_id' => 1, // Assign a random user
             ],
+            [
+                'alliance_company_name' => 'National Virtual Adjuster',
+                'phone' => '855 700 1672',
+                'email' => 'info@nationalvirtualadjuster.com',
+                'address' => '1117B S 21st Ave,Hollywood, FL 33020',
+                'website' => 'www.nationalvirtualadjuster.com',
+                'user_id' => 1, // Assign a random user
+            ],
            
         ];
 
