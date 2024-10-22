@@ -18,7 +18,7 @@ use Psr\Log\LoggerInterface;
 class InsuranceCompanyService
 {
     private const CACHE_TIME = 720; // minutes
-    private const CACHE_KEY_LIST = 'insurance_companies_total_list';
+    private const CACHE_KEY_LIST = 'insurance_companies_total_list_';
     private const CACHE_KEY_COMPANY = 'insurance_company_';
 
     public function __construct(

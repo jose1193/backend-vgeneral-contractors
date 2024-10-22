@@ -1,148 +1,189 @@
 <?php // app/Services/PublicCompanyService.php
+
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Interfaces\PublicCompanyRepositoryInterface;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\BaseController;
-use App\Models\PublicCompany;
+use App\DTOs\PublicCompanyDTO;
+use Exception;
 use Ramsey\Uuid\Uuid;
-use Illuminate\Database\QueryException;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Psr\Log\LoggerInterface;
 
 class PublicCompanyService
 {
-    protected $baseController;
-    protected $publicCompanyRepositoryInterface;
-    protected $cacheKey;
-    protected $cacheTime = 720;
+    private const CACHE_TIME = 720; // minutes
+    private const CACHE_KEY_LIST = 'public_companies_total_list_';
+    private const CACHE_KEY_COMPANY = 'public_company_';
 
-     public function __construct(PublicCompanyRepositoryInterface $publicCompanyRepositoryInterface, BaseController $baseController)
-    {
-        $this->publicCompanyRepositoryInterface = $publicCompanyRepositoryInterface;
-        $this->baseController = $baseController;
-    }
+    public function __construct(
+        private readonly PublicCompanyRepositoryInterface $repository,
+        private readonly TransactionService $transactionService,
+        private readonly UserCacheService $userCacheService,
+        private readonly LoggerInterface $logger
+    ) {}
 
-    public function all()
+    /**
+     * Get all public companies
+     */
+    public function all(): Collection
     {
         try {
-            $this->cacheKey = 'public_companies_total_list';
+            return $this->userCacheService->getCachedUserList(
+                self::CACHE_KEY_LIST,
+                Auth::id(),
+                fn() => $this->repository->index()
+            );
+        } catch (Exception $e) {
+            $this->logger->error('Error fetching public companies', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->publicCompanyRepositoryInterface->index();
-            });
+    /**
+     * Store a new public company
+     */
+    public function storeData(PublicCompanyDTO $dto): object
+    {
+        return $this->transactionService->handleTransaction(function () use ($dto) {
+            $details = $this->prepareCompanyDetails($dto);
+            $company = $this->repository->store($details);
+            
+            $this->updateCaches(Auth::id(), Uuid::fromString($company->uuid));
+            $this->logger->info('Public company stored successfully', ['uuid' => $company->uuid]);
+            
+            return $company;
+        }, 'storing public company');
+    }
 
-            $data = Cache::get($this->cacheKey);
-
-            if ($data === null || !is_iterable($data)) {
-                Log::warning('Data fetched from cache is null or not iterable');
-                return null; 
+    /**
+     * Update a public company
+     */
+    public function updateData(PublicCompanyDTO $dto, UuidInterface $uuid): object
+    {
+        return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
+            $existingCompany = $this->getExistingCompany($uuid);
+            
+        
+            if ($dto->publicCompanyName !== $existingCompany->public_company_name) {
+                $this->ensureCompanyNameIsUnique($dto->publicCompanyName, $uuid);
             }
+            
+            $updateDetails = $this->prepareUpdateDetails($dto, $uuid);
+            $company = $this->repository->update($updateDetails, $uuid->toString());
 
-            return $data;
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching public companies: ' . $e->getMessage(), [
-                'exception' => $e
+            $this->updateCaches(Auth::id(), $uuid);
+            $this->logger->info('Public company updated successfully', ['uuid' => $uuid->toString()]);
+            
+            return $company;
+        }, 'updating public company');
+    }
+
+    private function ensureCompanyNameIsUnique(string $name, UuidInterface $excludeUuid): void
+    {
+        try {
+            // Buscar si existe una compañía con el mismo nombre
+            $existingCompany = $this->repository->findByName($name);
+            
+            // Si existe una compañía con ese nombre y es diferente a la que estamos actualizando
+            if ($existingCompany && $existingCompany->uuid !== $excludeUuid->toString()) {
+                throw new Exception("A public company with this name already exists.");
+            }
+        } catch (Exception $e) {
+            $this->logger->error('Error checking company name uniqueness', [
+                'name' => $name,
+                'exclude_uuid' => $excludeUuid->toString(),
+                'error' => $e->getMessage()
             ]);
-            throw $e; 
-        } catch (\Exception $e) {
-            Log::error('Error occurred while fetching public companies: ' . $e->getMessage(), [
-                'exception' => $e
+            throw $e;
+        }
+    }
+
+    /**
+     * Get a specific public company
+     */
+    public function showData(UuidInterface $uuid): ?object
+    {
+        try {
+            return $this->userCacheService->getCachedItem(
+                self::CACHE_KEY_COMPANY,
+                $uuid->toString(),
+                fn() => $this->repository->getByUuid($uuid->toString())
+            );
+        } catch (Exception $e) {
+            $this->logger->error('Error retrieving public company', [
+                'uuid' => $uuid->toString(),
+                'error' => $e->getMessage()
             ]);
-            throw $e; 
+            throw $e;
         }
     }
 
-    public function updateData(array $updateDetails, string $uuid)
+    /**
+     * Delete a public company
+     */
+    public function deleteData(UuidInterface $uuid): bool
     {
-        DB::beginTransaction();
-
-        try {
-            $data = $this->publicCompanyRepositoryInterface->update($updateDetails, $uuid);
-
-            $this->updateDataCache();
-            DB::commit();
-
-            return $data;
-        } catch (\Exception $ex) {
-            DB::rollBack();
-            throw new \Exception('Error occurred while updating public company: ' . $ex->getMessage());
-        }
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingCompany = $this->getExistingCompany($uuid);
+            
+            $this->repository->delete($uuid->toString());
+            $this->updateCaches(Auth::id(), $uuid);
+            
+            $this->logger->info('Public company deleted successfully', [
+                'uuid' => $uuid->toString()
+            ]);
+            
+            return true;
+        }, 'deleting public company');
     }
 
-
-
-    private function updateDataCache()
+    /**
+     * Get existing company or throw exception
+     */
+    private function getExistingCompany(UuidInterface $uuid): object
     {
-        $this->cacheKey = 'public_companies_total_list';
-
-        if (!empty($this->cacheKey)) {
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->publicCompanyRepositoryInterface->index();
-            });
-        } else {
-            throw new \Exception('Invalid cacheKey provided');
+        $company = $this->repository->getByUuid($uuid->toString());
+        if (!$company) {
+            throw new Exception("Public company not found");
         }
+        return $company;
     }
 
-
-
-    public function storeData(array $details)
+    /**
+     * Prepare company details for creation
+     */
+    private function prepareCompanyDetails(PublicCompanyDTO $dto): array
     {
-        DB::beginTransaction();
-
-        try {
-            $details['uuid'] = Uuid::uuid4()->toString();
-
-            $data = $this->publicCompanyRepositoryInterface->store($details);
-
-            $this->updateDataCache();
-            DB::commit();
-
-            return $data;
-        } catch (\Exception $ex) {
-            DB::rollBack();
-            throw new \Exception('Error occurred while storing public company: ' . $ex->getMessage());
-        }
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+        ];
     }
 
-
-
-    public function showData(string $uuid)
+    /**
+     * Prepare company details for update
+     */
+    private function prepareUpdateDetails(PublicCompanyDTO $dto, UuidInterface $uuid): array
     {
-        try {
-            $cacheKey = 'public_company_' . $uuid;
-
-            // Obtain the public company data from the cache or from the database if not cached
-            $data = $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-                return $this->publicCompanyRepositoryInterface->getByUuid($uuid);
-            });
-
-            return $data;
-        } catch (\Exception $ex) {
-            throw new \Exception('Error occurred while retrieving public company: ' . $ex->getMessage());
-        }
+        return [
+            ...$dto->toArray(),
+            'uuid' => $uuid->toString(),
+        ];
     }
 
-
-
-    public function deleteData(string $uuid)
+    /**
+     * Update all related caches
+     */
+    private function updateCaches(int $userId, UuidInterface $uuid): void
     {
-        try {
-            $data = $this->publicCompanyRepositoryInterface->delete($uuid);
-
-            // Invalidate the cache for the public company
-            $this->baseController->invalidateCache('public_company_' . $uuid);
-
-            // Update the cache for the list of public companies
-            $this->updateDataCache();
-
-            return $data;
-        } catch (\Exception $ex) {
-            throw new \Exception('Error occurred while deleting public company: ' . $ex->getMessage());
-        }
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_COMPANY, $uuid->toString());
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
     }
-
-
-    
 }
