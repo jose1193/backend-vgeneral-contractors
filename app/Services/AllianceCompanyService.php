@@ -1,165 +1,188 @@
-<?php // app/Services/AllianceCompanyService.php
+<?php
+
+declare(strict_types=1);
 
 namespace App\Services;
 
 use App\Interfaces\AllianceCompanyRepositoryInterface;
-use App\Http\Controllers\BaseController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
+use App\DTOs\AllianceCompanyDTO;
 use Exception;
-use Illuminate\Database\QueryException;
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Psr\Log\LoggerInterface;
 
 class AllianceCompanyService
 {
-    protected $baseController;
-    protected $allianceCompanyRepositoryInterface;
-    protected $cacheKey;
-    protected $cacheTime = 720;
+    private const CACHE_TIME = 720; // minutes
+    private const CACHE_KEY_LIST = 'alliance_companies_total_list_';
+    private const CACHE_KEY_COMPANY = 'alliance_company_';
 
     public function __construct(
-        AllianceCompanyRepositoryInterface $allianceCompanyRepositoryInterface,
-        BaseController $baseController
-    ) {
-        $this->allianceCompanyRepositoryInterface = $allianceCompanyRepositoryInterface;
-        $this->baseController = $baseController;
-    }
+        private readonly AllianceCompanyRepositoryInterface $repository,
+        private readonly TransactionService $transactionService,
+        private readonly UserCacheService $userCacheService,
+        private readonly LoggerInterface $logger
+    ) {}
 
-    public function all()
+    /**
+     * Get all alliance companies
+     */
+    public function all(): Collection
     {
         try {
-            $this->cacheKey = 'alliance_companies_total_list';
-
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->allianceCompanyRepositoryInterface->index();
-            });
-
-            $data = Cache::get($this->cacheKey);
-
-            if ($data === null || !is_iterable($data)) {
-                Log::warning('Data fetched from cache is null or not iterable');
-                return null; 
-            }
-
-            return $data;
-        } catch (QueryException $e) {
-            Log::error('Database error occurred while fetching alliance companies: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            throw $e; 
+            return $this->userCacheService->getCachedUserList(
+                self::CACHE_KEY_LIST,
+                Auth::id(),
+                fn() => $this->repository->index()
+            );
         } catch (Exception $e) {
-            Log::error('Error occurred while fetching alliance companies: ' . $e->getMessage(), [
-                'exception' => $e
+            $this->logger->error('Error fetching alliance companies', [
+                'error' => $e->getMessage()
             ]);
-            throw $e; 
+            throw $e;
         }
     }
 
-    public function storeData(array $details)
+    /**
+     * Store a new alliance company
+     */
+    public function storeData(AllianceCompanyDTO $dto): object
     {
-        DB::beginTransaction();
-
-        try {
-            $this->validateUniqueCompany($details['company_name']);
-
-            $details['uuid'] = Uuid::uuid4()->toString();
-            $details['user_id'] = Auth::id();
-
-            $data = $this->allianceCompanyRepositoryInterface->store($details);
-
-            $this->updateDataCache();
-            DB::commit();
-
-            return $data;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            throw new Exception('Error occurred while storing alliance company: ' . $ex->getMessage());
-        }
+        return $this->transactionService->handleTransaction(function () use ($dto) {
+            $details = $this->prepareCompanyDetails($dto);
+            $company = $this->repository->store($details);
+            
+            $this->updateCaches(Auth::id(), Uuid::fromString($company->uuid));
+            $this->logger->info('Alliance company stored successfully', ['uuid' => $company->uuid]);
+            
+            return $company;
+        }, 'storing alliance company');
     }
 
-    public function updateData(array $updateDetails, string $uuid)
+    /**
+     * Update an alliance company
+     */
+    public function updateData(AllianceCompanyDTO $dto, UuidInterface $uuid): object
     {
-        DB::beginTransaction();
-
-        try {
-            $existingCompany = $this->allianceCompanyRepositoryInterface->getByUuid($uuid);
-
-            if (!$existingCompany || $existingCompany->user_id !== Auth::id()) {
-                throw new Exception('No permission to update this company or company not found.');
+        return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
+            $existingCompany = $this->getExistingCompany($uuid);
+            
+            if ($dto->allianceCompanyName !== $existingCompany->alliance_company_name) {
+                $this->ensureCompanyNameIsUnique($dto->allianceCompanyName, $uuid);
             }
+            
+            $updateDetails = $this->prepareUpdateDetails($dto, $uuid);
+            $company = $this->repository->update($updateDetails, $uuid->toString());
 
-            $data = $this->allianceCompanyRepositoryInterface->update($updateDetails, $uuid);
-
-            $this->updateDataCache();
-            DB::commit();
-
-            return $data;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            throw new Exception('Error occurred while updating alliance company: ' . $ex->getMessage());
-        }
+            $this->updateCaches(Auth::id(), $uuid);
+            $this->logger->info('Alliance company updated successfully', ['uuid' => $uuid->toString()]);
+            
+            return $company;
+        }, 'updating alliance company');
     }
 
-    public function showData(string $uuid)
+    private function ensureCompanyNameIsUnique(string $name, UuidInterface $excludeUuid): void
     {
         try {
-            $cacheKey = 'alliance_company_' . $uuid;
-
-            $data = $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-                return $this->allianceCompanyRepositoryInterface->getByUuid($uuid);
-            });
-
-            return $data;
-        } catch (Exception $ex) {
-            throw new Exception('Error occurred while retrieving alliance company: ' . $ex->getMessage());
-        }
-    }
-
-    public function deleteData(string $uuid)
-    {
-        DB::beginTransaction();
-
-        try {
-            $existingCompany = $this->allianceCompanyRepositoryInterface->getByUuid($uuid);
-
-            if (!$existingCompany || $existingCompany->user_id !== Auth::id()) {
-                throw new Exception('No permission to delete this company or company not found.');
+            $existingCompany = $this->repository->findByName($name);
+            
+            if ($existingCompany && $existingCompany->uuid !== $excludeUuid->toString()) {
+                throw new Exception("An alliance company with this name already exists.");
             }
-
-            $data = $this->allianceCompanyRepositoryInterface->delete($uuid);
-
-            $this->baseController->invalidateCache('alliance_company_' . $uuid);
-            $this->updateDataCache();
-            DB::commit();
-
-            return $data;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            throw new Exception('Error occurred while deleting alliance company: ' . $ex->getMessage());
+        } catch (Exception $e) {
+            $this->logger->error('Error checking company name uniqueness', [
+                'name' => $name,
+                'exclude_uuid' => $excludeUuid->toString(),
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 
-    private function updateDataCache()
+    /**
+     * Get a specific alliance company
+     */
+    public function showData(UuidInterface $uuid): ?object
     {
-        $this->cacheKey = 'alliance_companies_total_list';
-
-        if (!empty($this->cacheKey)) {
-            $this->baseController->refreshCache($this->cacheKey, $this->cacheTime, function () {
-                return $this->allianceCompanyRepositoryInterface->index();
-            });
-        } else {
-            throw new Exception('Invalid cacheKey provided');
+        try {
+            return $this->userCacheService->getCachedItem(
+                self::CACHE_KEY_COMPANY,
+                $uuid->toString(),
+                fn() => $this->repository->getByUuid($uuid->toString())
+            );
+        } catch (Exception $e) {
+            $this->logger->error('Error retrieving alliance company', [
+                'uuid' => $uuid->toString(),
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 
-    private function validateUniqueCompany(string $companyName)
+    /**
+     * Delete an alliance company
+     */
+    public function deleteData(UuidInterface $uuid): bool
     {
-        $existingCompany = $this->allianceCompanyRepositoryInterface->findByCompanyName($companyName);
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingCompany = $this->getExistingCompany($uuid);
+            
+            $this->repository->delete($uuid->toString());
+            $this->updateCaches(Auth::id(), $uuid);
+            
+            $this->logger->info('Alliance company deleted successfully', [
+                'uuid' => $uuid->toString()
+            ]);
+            
+            return true;
+        }, 'deleting alliance company');
+    }
 
-        if ($existingCompany) {
-            throw new Exception('A company with this name already exists.');
+    /**
+     * Get existing company or throw exception
+     */
+    private function getExistingCompany(UuidInterface $uuid): object
+    {
+        $company = $this->repository->getByUuid($uuid->toString());
+        if (!$company) {
+            throw new Exception("Alliance company not found");
         }
+        return $company;
+    }
+
+    /**
+     * Prepare company details for creation
+     */
+    private function prepareCompanyDetails(AllianceCompanyDTO $dto): array
+    {
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+            'user_id' => Auth::id(),
+        ];
+    }
+
+    /**
+     * Prepare company details for update
+     */
+    private function prepareUpdateDetails(AllianceCompanyDTO $dto, UuidInterface $uuid): array
+    {
+        return [
+            ...$dto->toArray(),
+            'uuid' => $uuid->toString(),
+            'user_id' => Auth::id(),
+        ];
+    }
+
+    /**
+     * Update all related caches
+     */
+    private function updateCaches(int $userId, UuidInterface $uuid): void
+    {
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_COMPANY, $uuid->toString());
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
     }
 }

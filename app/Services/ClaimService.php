@@ -288,8 +288,6 @@ class ClaimService
             $this->logger->info('Claim agreement generated automatically', ['claim_id' => $claim->id, 'agreement_id' => $agreement->id]);
         } catch (Exception $e) {
             $this->logger->error('Failed to generate claim agreement automatically', ['claim_id' => $claim->id, 'error' => $e->getMessage()]);
-            // Note: We're not re-throwing the exception here to avoid rolling back the claim creation
-            // You might want to handle this differently based on your business requirements
         }
     }
 

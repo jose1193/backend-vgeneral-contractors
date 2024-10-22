@@ -19,6 +19,7 @@ class ClaimAgreementFullResource extends JsonResource
       'uuid' => $this->uuid,
       'claim_id' => (int) $this->claim_id,
       'full_pdf_path' => asset($this->full_pdf_path),
+      'agreement_type' => $this->agreement_type,
       'generated_by' => $this->generatedBy ? $this->generatedBy->name . ' ' . $this->generatedBy->last_name : null,
       'customers' => $this->claim->property->customers->map(function ($customer) {
                 return [
