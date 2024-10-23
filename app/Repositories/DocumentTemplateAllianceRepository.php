@@ -26,10 +26,10 @@ class DocumentTemplateAllianceRepository implements DocumentTemplateAllianceRepo
         return DocumentTemplateAlliance::where('uuid', $uuid)->firstOrFail();
     }
 
-    public function getDocumentTemplateAlliancesByUser(string $uuid): Collection
+
+    public function getDocumentTemplateAlliancesByUser(object $user): Collection
     {
-        $user = User::where('uuid', $uuid)->firstOrFail();
-        
+    
         if ($this->isSuperAdmin($user->id)) {
             return DocumentTemplateAlliance::orderBy('id', 'DESC')->get();
         }

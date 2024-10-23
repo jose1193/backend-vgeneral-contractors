@@ -19,7 +19,7 @@ interface DocumentTemplateAllianceRepositoryInterface
     /**
      * Get document template alliances by user
      */
-    public function getDocumentTemplateAlliancesByUser(string $uuid): Collection;
+    public function getDocumentTemplateAlliancesByUser(object $user): Collection;
 
     /**
      * Store a new document template alliance
