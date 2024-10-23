@@ -11,7 +11,12 @@ use Illuminate\Http\UploadedFile;
 class S3Service
 {
     private const MAX_IMAGE_DIMENSION = 700;
-
+    private const ALLOWED_DOCUMENT_TYPES = [
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx'
+    ];
+    
     public function storeAndResize($image, string $storagePath): string
     {
         try {
@@ -173,4 +178,58 @@ class S3Service
             return null;
         }
     }
+
+   public function storeAgreementFile($file, string $storagePath): string
+{
+    try {
+        if (!$file instanceof UploadedFile) {
+            throw new \InvalidArgumentException('File must be an instance of UploadedFile');
+        }
+
+        // Validar el tipo MIME del archivo
+        $mimeType = $file->getMimeType();
+        if (!array_key_exists($mimeType, self::ALLOWED_DOCUMENT_TYPES)) {
+            Log::error('Invalid document type', [
+                'mime_type' => $mimeType,
+                'allowed_types' => array_keys(self::ALLOWED_DOCUMENT_TYPES)
+            ]);
+            throw new \InvalidArgumentException('Invalid document type. Allowed types are: doc, docx, pdf');
+        }
+
+        // Obtener el nombre original y limpiarlo
+        $originalName = $file->getClientOriginalName();
+        // Remover caracteres especiales y espacios
+        $safeName = preg_replace('/[^a-zA-Z0-9_.-]/', '_', $originalName);
+        
+        // Construir la ruta completa en S3
+        $s3Path = $storagePath . '/' . $safeName;
+
+        // Registrar información del archivo antes de guardarlo
+        Log::info('Storing agreement file', [
+            'original_name' => $originalName,
+            'safe_name' => $safeName,
+            'mime_type' => $mimeType,
+            's3_path' => $s3Path
+        ]);
+
+        // Almacenar el archivo en S3
+        Storage::disk('s3')->put($s3Path, fopen($file->getRealPath(), 'r+'));
+
+        // Obtener y validar la URL del archivo almacenado
+        $fileUrl = Storage::disk('s3')->url($s3Path);
+
+        Log::info('Agreement file stored successfully', [
+            'file_url' => $fileUrl
+        ]);
+
+        return $fileUrl;
+    } catch (\Exception $e) {
+        Log::error('Error storing agreement file', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        throw $e;
+    }
+}
+    
 }

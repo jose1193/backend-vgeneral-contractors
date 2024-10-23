@@ -23,6 +23,7 @@ class DocumentTemplateService
     private const CACHE_KEY_LIST = 'document_templates_user_list_';
     private const CACHE_KEY_TEMPLATE = 'document_template_';
     private const TEMPLATE_S3_PATH = 'public/document_templates';
+    private const SINGLE_INSTANCE_TYPES = ['Agreement', 'Agreement Full'];
 
     public function __construct(
         private readonly DocumentTemplateRepositoryInterface $repository,
@@ -46,7 +47,22 @@ class DocumentTemplateService
     {
         return $this->transactionService->handleTransaction(function () use ($dto) {
             $user = $this->getAuthenticatedUser();
-            $this->validateSuperAdminPermission();
+            
+            // Validar nombre único
+            if ($this->repository->existsByName($dto->templateName)) {
+                throw new \InvalidArgumentException(
+                    "A template with name '{$dto->templateName}' already exists"
+                );
+            }
+            
+            // Validar tipo único para Agreement y Agreement Full
+            if (in_array($dto->templateType, self::SINGLE_INSTANCE_TYPES)) {
+                if ($this->repository->existsByType($dto->templateType)) {
+                    throw new \InvalidArgumentException(
+                        "A template of type '{$dto->templateType}' already exists. Only one instance is allowed."
+                    );
+                }
+            }
 
             $details = $this->prepareTemplateDetails($dto);
             $template = $this->createTemplate($details);
@@ -57,20 +73,90 @@ class DocumentTemplateService
         }, 'storing document template');
     }
 
-    public function updateData(DocumentTemplateDTO $dto, UuidInterface $uuid): object
+     public function updateData(DocumentTemplateDTO $dto, UuidInterface $uuid): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
-            $this->validateSuperAdminPermission();
             $existingTemplate = $this->getExistingTemplate($uuid);
-
-            $updateDetails = $this->prepareUpdateDetails($dto, $uuid, $existingTemplate);
-            $template = $this->repository->update($updateDetails, $uuid->toString());
-
-            $this->updateCaches(Auth::id(), $uuid);
             
-            $this->logger->info('Document template updated successfully', ['uuid' => $uuid->toString()]);
-            return $template;
+            // Validar nombre único si se está actualizando
+            if ($dto->templateName !== null && 
+                $dto->templateName !== $existingTemplate->template_name) {
+                
+                if ($this->repository->existsByNameExcludingUuid($dto->templateName, $uuid->toString())) {
+                    throw new \InvalidArgumentException(
+                        "A template with name '{$dto->templateName}' already exists"
+                    );
+                }
+            }
+            
+            // Validar tipo único para Agreement y Agreement Full
+            if ($dto->templateType !== null && 
+                in_array($dto->templateType, self::SINGLE_INSTANCE_TYPES) &&
+                $dto->templateType !== $existingTemplate->template_type) {
+                
+                if ($this->repository->existsByType($dto->templateType)) {
+                    throw new \InvalidArgumentException(
+                        "A template of type '{$dto->templateType}' already exists. Only one instance is allowed."
+                    );
+                }
+            }
+
+            $updateDetails = [];
+
+            if ($dto->templateName !== null) {
+                $updateDetails['template_name'] = $dto->templateName;
+            }
+            if ($dto->templateDescription !== null) {
+                $updateDetails['template_description'] = $dto->templateDescription;
+            }
+            if ($dto->templateType !== null) {
+                $updateDetails['template_type'] = $dto->templateType;
+            }
+            if ($dto->signaturePathId !== null) {
+                $updateDetails['signature_path_id'] = $dto->signaturePathId;
+            }
+            
+            if ($dto->templatePath instanceof UploadedFile) {
+                $updateDetails['template_path'] = $this->handleTemplatePathUpdate(
+                    $dto->templatePath,
+                    $existingTemplate->template_path
+                );
+            }
+
+            $updateDetails['uploaded_by'] = Auth::id();
+            $updateDetails['uuid'] = $uuid->toString();
+
+            $this->logger->info('Attempting to update document template with form data', [
+                'template_uuid' => $uuid->toString(),
+                'update_details' => $updateDetails,
+                'user_id' => Auth::id(),
+                'original_template_name' => $existingTemplate->template_name,
+                'has_new_file' => isset($updateDetails['template_path']),
+            ]);
+
+            if (!empty($updateDetails)) {
+                $template = $this->repository->update($updateDetails, $uuid->toString());
+                $this->updateCaches(Auth::id(), $uuid);
+                $this->logger->info('Document template updated successfully', [
+                    'uuid' => $uuid->toString(),
+                    'updated_fields' => array_keys($updateDetails)
+                ]);
+                return $template;
+            }
+
+            return $existingTemplate;
         }, 'updating document template');
+    }
+
+    private function handleTemplatePathUpdate($newTemplatePath, string $existingPath): string
+    {
+        // Solo eliminar el archivo existente si el nuevo archivo es válido
+        if ($newTemplatePath instanceof UploadedFile) {
+            $this->s3Service->deleteFileFromStorage($existingPath);
+            return $this->s3Service->storeAgreementFile($newTemplatePath, self::TEMPLATE_S3_PATH);
+        }
+        
+        return $existingPath;
     }
 
     public function showData(UuidInterface $uuid): ?object
@@ -85,7 +171,7 @@ class DocumentTemplateService
     public function deleteData(UuidInterface $uuid): bool
     {
         return $this->transactionService->handleTransaction(function () use ($uuid) {
-            $this->validateSuperAdminPermission();
+            //$this->validateSuperAdminPermission();
             $existingTemplate = $this->getExistingTemplate($uuid);
 
             $this->repository->delete($uuid->toString());
@@ -152,11 +238,7 @@ class DocumentTemplateService
         return $updateDetails;
     }
 
-    private function handleTemplatePathUpdate(string $newTemplatePath, string $existingPath): string
-    {
-        $this->s3Service->deleteFileFromStorage($existingPath);
-        return $this->s3Service->storeFile($newTemplatePath, self::TEMPLATE_S3_PATH);
-    }
+    
 
     private function updateCaches(int $userId, UuidInterface $uuid): void
     {
@@ -168,7 +250,7 @@ class DocumentTemplateService
     private function createTemplate(array $details): object
     {
         if (isset($details['template_path'])) {
-            $details['template_path'] = $this->s3Service->storeFile(
+            $details['template_path'] = $this->s3Service->storeAgreementFile(
                 $details['template_path'], 
                 self::TEMPLATE_S3_PATH
             );

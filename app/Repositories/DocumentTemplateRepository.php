@@ -81,4 +81,27 @@ class DocumentTemplateRepository implements DocumentTemplateRepositoryInterface
 
         return $query->exists();
     }
+
+    public function existsByType(string $type): bool
+    {
+        return DocumentTemplate::query()
+            ->where('template_type', $type)
+            ->exists();
+    }
+
+    public function existsByName(string $name): bool
+    {
+        return DocumentTemplate::query()
+            ->where('template_name', $name)
+            ->exists();
+    }
+
+    public function existsByNameExcludingUuid(string $name, string $uuid): bool
+    {
+        return DocumentTemplate::query()
+            ->where('template_name', $name)
+            ->where('uuid', '!=', $uuid)
+            ->exists();
+    }
+    
 }

@@ -1,80 +1,114 @@
 <?php
 
 namespace App\Repositories;
+
 use App\Models\DocumentTemplateAlliance;
 use App\Models\CompanySignature;
+use App\Models\User;
 use App\Interfaces\DocumentTemplateAllianceRepositoryInterface;
-
+use App\Interfaces\UsersRepositoryInterface;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class DocumentTemplateAllianceRepository implements DocumentTemplateAllianceRepositoryInterface
 {
-    /**
-     * Create a new class instance.
-     */
-    /**
-     * Get all document templates.
-     */
-    public function index()
+    public function __construct(
+        private readonly UsersRepositoryInterface $userRepository
+    ) {}
+
+    public function index(): Collection
     {
-        return DocumentTemplateAlliance::with('uploaded_by')->orderBy('id', 'DESC')->get();
+        return DocumentTemplateAlliance::orderBy('id', 'DESC')->get();
     }
 
-    /**
-     * Get a document template by its ID.
-     */
-    public function getByUuid(string $uuid)
+    public function getByUuid(string $uuid): ?DocumentTemplateAlliance
     {
         return DocumentTemplateAlliance::where('uuid', $uuid)->firstOrFail();
     }
 
-    /**
-     * Store a new document template.
-     */
-    public function store(array $data)
+    public function getDocumentTemplateAlliancesByUser(string $uuid): Collection
+    {
+        $user = User::where('uuid', $uuid)->firstOrFail();
+        
+        if ($this->isSuperAdmin($user->id)) {
+            return DocumentTemplateAlliance::orderBy('id', 'DESC')->get();
+        }
+        
+        return DocumentTemplateAlliance::where('uploaded_by', $user->id)
+            ->orderBy('id', 'DESC')
+            ->get();
+    }
+
+    public function store(array $data): DocumentTemplateAlliance
     {
         return DocumentTemplateAlliance::create($data);
     }
 
-    /**
-     * Update an existing document template by its uuid.
-     */
-    public function update(array $data, string $uuid)
+    public function update(array $data, string $uuid): DocumentTemplateAlliance
     {
         $documentTemplate = $this->getByUuid($uuid);
         $documentTemplate->update($data);
         return $documentTemplate;
     }
 
-    /**
-     * Delete a document template by its ID.
-     */
-    public function delete(string $id)
+    public function delete(string $uuid): bool
     {
-        $documentTemplate = $this->getByUuid($id);
-        $documentTemplate->delete();
-        return $documentTemplate;
+        $documentTemplate = $this->getByUuid($uuid);
+        return $documentTemplate->delete();
     }
 
-    /**
-     * Get document templates by user permissions.
-     */
-    public function getDocumentTemplateAlliancesByUser($user)
+    public function getByUploadedBy(int $uploadedBy): Collection
     {
-    if ($user->hasPermissionTo('Super Admin', 'api')) {
-        // If the user has "Super Admin" permission, get all templates
-        return DocumentTemplateAlliance::orderBy('id', 'DESC')->get();
-    } else {
-        // If the user does not have special permissions, get templates created by the user
-        return DocumentTemplateAlliance::where('uploaded_by', $user)
+        return DocumentTemplateAlliance::where('uploaded_by', $uploadedBy)
             ->orderBy('id', 'DESC')
             ->get();
     }
-    }
 
-    public function getCompanySignature()
+    public function isSuperAdmin(int $userId): bool
     {
-    return CompanySignature::firstOrFail();
-                                 
+        return $this->userRepository->isSuperAdmin($userId);
     }
 
+    public function getAllSuperAdmins(): Collection
+    {
+        return $this->userRepository->getAllSuperAdmins();
+    }
+
+    public function templateTypeExistsForOtherTemplate(string $templateType, ?string $excludeUuid = null): bool
+    {
+        $query = DocumentTemplateAlliance::where('template_type_alliance', $templateType);
+
+        if ($excludeUuid) {
+            $query->where('uuid', '!=', $excludeUuid);
+        }
+
+        return $query->exists();
+    }
+
+    public function getCompanySignature(): ?object
+    {
+        return CompanySignature::firstOrFail();
+    }
+
+    public function existsByType(string $type): bool
+    {
+        return DocumentTemplateAlliance::query()
+            ->where('template_type_alliance', $type)
+            ->exists();
+    }
+
+    public function existsByName(string $name): bool
+    {
+        return DocumentTemplateAlliance::query()
+            ->where('template_name_alliance', $name)
+            ->exists();
+    }
+
+    public function existsByNameExcludingUuid(string $name, string $uuid): bool
+    {
+        return DocumentTemplateAlliance::query()
+            ->where('template_name_alliance', $name)
+            ->where('uuid', '!=', $uuid)
+            ->exists();
+    }
 }

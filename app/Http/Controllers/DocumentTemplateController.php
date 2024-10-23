@@ -20,7 +20,7 @@ class DocumentTemplateController extends BaseController
 
     public function __construct(DocumentTemplateService $service)
     {
-        $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'update', 'destroy']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'store', 'update', 'destroy']);
         $this->service = $service;
     }
 

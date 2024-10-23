@@ -1,189 +1,235 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Interfaces\DocumentTemplateAllianceRepositoryInterface;
-use App\Http\Controllers\BaseController;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Ramsey\Uuid\Uuid;
+use App\Interfaces\CompanySignatureRepositoryInterface;
+use App\DTOs\DocumentTemplateAllianceDTO;
+use App\Exceptions\UnauthorizedException;
+use App\Exceptions\TemplateNotFoundException;
 use Exception;
-use Illuminate\Database\QueryException;
-use App\Helpers\ImageHelper;
+
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
+use Psr\Log\LoggerInterface;
 
 class DocumentTemplateAllianceService
 {
-    protected $serviceData;
-    protected $baseController;
-    protected $cacheTime = 720; 
+    private const CACHE_TIME = 720; // minutes
+    private const CACHE_KEY_LIST = 'document_template_alliances_user_list_';
+    private const CACHE_KEY_TEMPLATE = 'document_template_alliance_';
+    private const TEMPLATE_S3_PATH = 'public/document_template_alliances';
+    private const SINGLE_INSTANCE_TYPES = ['Agreement', 'Agreement Full'];
 
     public function __construct(
-        DocumentTemplateAllianceRepositoryInterface $serviceData,
-        BaseController $baseController
-    ) {
-        $this->serviceData = $serviceData;
-        $this->baseController = $baseController;
-    }
+        private readonly DocumentTemplateAllianceRepositoryInterface $repository,
+        private readonly CompanySignatureRepositoryInterface $companySignatureRepository,
+        private readonly S3Service $s3Service,
+        private readonly TransactionService $transactionService,
+        private readonly UserCacheService $userCacheService,
+        private readonly LoggerInterface $logger
+    ) {}
 
-    private function getUserId()
+    public function all(): Collection
     {
-        return Auth::id();
+        return $this->userCacheService->getCachedUserList(
+            self::CACHE_KEY_LIST,
+            Auth::id(),
+            fn() => $this->repository->getDocumentTemplateAlliancesByUser(Auth::user())
+        );
     }
-
-    public function all()
-    {
-        $userId = $this->getUserId();
-        $cacheKey = 'document_template_alliances_total_list_' . $userId;
-
-        return $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($userId) {
-            return $this->serviceData->getDocumentTemplateAlliancesByUser(Auth::user());
-        });
-    }
-
-    public function storeData(array $details)
-    {
-        return $this->handleTransaction(function () use ($details) {
-            try {
-                // Store the file in S3
-                $storedFilePath = ImageHelper::storeFile($details['template_path_alliance'], 'public/document_template_alliances');
-
-                $signature = $this->serviceData->getCompanySignature();
-
-                $details['uuid'] = Uuid::uuid4()->toString();
-                $details['uploaded_by'] = $this->getUserId();
-                $details['signature_path_id'] = $signature->id;
-                $details['template_path_alliance'] = $storedFilePath;
-
-                // Store the template information in the database
-                $template = $this->serviceData->store($details);
-
-                $this->updateDataCache();
-                return $template;
-
-            } catch (Exception $e) {
-                $this->handleException($e, 'storing document template alliance');
-            }
-        });
-    }
-
 
     
-    public function updateData(array $updateDetails, string $uuid)
+    public function storeData(DocumentTemplateAllianceDTO $dto): object
     {
-        return $this->handleTransaction(function () use ($updateDetails, $uuid) {
-            try {
-                $existingTemplate = $this->serviceData->getByUuid($uuid);
-                Log::info('Existing Template Alliance:', ['template' => $existingTemplate]);
-
-                if (isset($updateDetails['template_path_alliance'])) {
-                    // Delete the existing file from S3
-                    if ($existingTemplate && $existingTemplate->template_path_alliance) {
-                        Log::info('Deleting old template path from S3:', ['path' => $existingTemplate->template_path_alliance]);
-                        ImageHelper::deleteFileFromStorage($existingTemplate->template_path_alliance);
-                    }
-
-                    // Store the new file in S3
-                    $newFilePath = ImageHelper::storeFile($updateDetails['template_path_alliance'], 'public/document_template_alliances/');
-                    $updateDetails['template_path_alliance'] = $newFilePath;
-                }
-
-                // Update the template information in the database
-                $updatedTemplate = $this->serviceData->update($updateDetails, $uuid);
-                Log::info('Updated Template Alliance:', ['template' => $updatedTemplate]);
-
-                $this->updateDataCache();
-                return $updatedTemplate;
-
-            } catch (Exception $e) {
-                $this->handleException($e, 'updating document template alliance');
+        return $this->transactionService->handleTransaction(function () use ($dto) {
+            $user = $this->getAuthenticatedUser();
+            
+            // Validar nombre único
+            if ($this->repository->existsByName($dto->templateNameAlliance)) {
+                throw new \InvalidArgumentException(
+                    "A template with name '{$dto->templateNameAlliance}' already exists"
+                );
             }
-        });
+            
+            // Validar tipo único para Agreement y Agreement Full
+            if (in_array($dto->templateTypeAlliance, self::SINGLE_INSTANCE_TYPES)) {
+                if ($this->repository->existsByType($dto->templateTypeAlliance)) {
+                    throw new \InvalidArgumentException(
+                        "A template of type '{$dto->templateTypeAlliance}' already exists. Only one instance is allowed."
+                    );
+                }
+            }
+            
+            $details = $this->prepareTemplateDetails($dto);
+            $template = $this->createTemplate($details);
+
+            $this->updateCaches(Auth::id(), Uuid::fromString($template->uuid));
+            $this->logger->info('Document template alliance stored successfully', ['uuid' => $template->uuid]);
+            return $template;
+        }, 'storing document template alliance');
     }
 
-    public function showData(string $uuid)
-    {
-        $cacheKey = 'document_template_alliance_' . $uuid;
 
-        return $this->baseController->getCachedData($cacheKey, $this->cacheTime, function () use ($uuid) {
-            try {
-                return $this->serviceData->getByUuid($uuid);
-            } catch (Exception $e) {
-                $this->handleException($e, 'fetching document template alliance');
-                return null;
+    public function updateData(DocumentTemplateAllianceDTO $dto, UuidInterface $uuid): object
+    {
+        return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
+            $existingTemplate = $this->getExistingTemplate($uuid);
+            
+            // Validar nombre único si se está actualizando
+            if ($dto->templateNameAlliance !== null && 
+                $dto->templateNameAlliance !== $existingTemplate->template_name_alliance) {
+                
+                if ($this->repository->existsByNameExcludingUuid($dto->templateNameAlliance, $uuid->toString())) {
+                    throw new \InvalidArgumentException(
+                        "A template with name '{$dto->templateNameAlliance}' already exists"
+                    );
+                }
             }
-        });
+            
+            // Validar tipo único para Agreement y Agreement Full
+            if ($dto->templateTypeAlliance !== null && 
+                in_array($dto->templateTypeAlliance, self::SINGLE_INSTANCE_TYPES) &&
+                $dto->templateTypeAlliance !== $existingTemplate->template_type_alliance) {
+                
+                if ($this->repository->existsByType($dto->templateTypeAlliance)) {
+                    throw new \InvalidArgumentException(
+                        "A template of type '{$dto->templateTypeAlliance}' already exists. Only one instance is allowed."
+                    );
+                }
+            }
+
+            $updateDetails = [];
+
+            if ($dto->templateNameAlliance !== null) {
+                $updateDetails['template_name_alliance'] = $dto->templateNameAlliance;
+            }
+            if ($dto->templateDescriptionAlliance !== null) {
+                $updateDetails['template_description_alliance'] = $dto->templateDescriptionAlliance;
+            }
+            if ($dto->templateTypeAlliance !== null) {
+                $updateDetails['template_type_alliance'] = $dto->templateTypeAlliance;
+            }
+            if ($dto->signaturePathId !== null) {
+                $updateDetails['signature_path_id'] = $dto->signaturePathId;
+            }
+            
+            if ($dto->templatePathAlliance instanceof UploadedFile) {
+                $updateDetails['template_path_alliance'] = $this->handleTemplatePathUpdate(
+                    $dto->templatePathAlliance,
+                    $existingTemplate->template_path_alliance
+                );
+            }
+
+            $updateDetails['uploaded_by'] = Auth::id();
+            $updateDetails['uuid'] = $uuid->toString();
+
+            $this->logger->info('Attempting to update document template alliance with form data', [
+                'template_uuid' => $uuid->toString(),
+                'update_details' => $updateDetails,
+                'user_id' => Auth::id(),
+                'original_template_name' => $existingTemplate->template_name_alliance,
+                'has_new_file' => isset($updateDetails['template_path_alliance']),
+            ]);
+
+            if (!empty($updateDetails)) {
+                $template = $this->repository->update($updateDetails, $uuid->toString());
+                $this->updateCaches(Auth::id(), $uuid);
+                $this->logger->info('Document template alliance updated successfully', [
+                    'uuid' => $uuid->toString(),
+                    'updated_fields' => array_keys($updateDetails)
+                ]);
+                return $template;
+            }
+
+            return $existingTemplate;
+        }, 'updating document template alliance');
     }
 
-    public function deleteData(string $uuid)
+
+    private function handleTemplatePathUpdate($newTemplatePath, string $existingPath): string
     {
-        return $this->handleTransaction(function () use ($uuid) {
-            try {
-                $cacheKey = 'document_template_alliance_' . $uuid;
-                $existingTemplate = $this->serviceData->getByUuid($uuid);
-
-                if (!$existingTemplate) {
-                    throw new \Exception("Template alliance not found");
-                }
-
-                // Delete the template from the database
-                $this->serviceData->delete($uuid);
-
-                // Delete the file from S3
-                $deleted = ImageHelper::deleteFileFromStorage($existingTemplate->template_path_alliance);
-
-                if (!$deleted) {
-                    throw new \Exception("Failed to delete file from S3");
-                }
-
-                // Invalidate the cache
-                $this->baseController->invalidateCache($cacheKey);
-                $this->updateDataCache();
-
-            } catch (\Exception $e) {
-                $this->handleException($e, 'deleting document template alliance');
-                throw $e;
-            }
-        });
-    }
-
-    private function handleTransaction(callable $callback)
-    {
-        DB::beginTransaction();
-        try {
-            $result = $callback();
-            DB::commit();
-            return $result;
-        } catch (Exception $ex) {
-            DB::rollBack();
-            $this->handleException($ex, 'transaction');
-            throw $ex;
+        if ($newTemplatePath instanceof UploadedFile) {
+            $this->s3Service->deleteFileFromStorage($existingPath);
+            return $this->s3Service->storeAgreementFile($newTemplatePath, self::TEMPLATE_S3_PATH);
         }
+        
+        return $existingPath;
     }
 
-    private function handleException(Exception $e, string $context)
+    public function showData(UuidInterface $uuid): ?object
     {
-        Log::error("Error occurred while {$context}: " . $e->getMessage(), [
-            'exception' => $e,
-            'stack_trace' => $e->getTraceAsString(),
-            'user_id' => Auth::id(),
-            'context' => $context
-        ]);
-
-        throw $e;
+        return $this->userCacheService->getCachedItem(
+            self::CACHE_KEY_TEMPLATE,
+            $uuid->toString(),
+            fn() => $this->repository->getByUuid($uuid->toString())
+        );
     }
 
-    private function updateDataCache()
+    public function deleteData(UuidInterface $uuid): bool
     {
-        $userId = Auth::id();
-        $cacheKey = 'document_template_alliances_total_list_' . $userId;
+        return $this->transactionService->handleTransaction(function () use ($uuid) {
+            $existingTemplate = $this->getExistingTemplate($uuid);
 
-        if (!empty($cacheKey)) {
-            $this->baseController->refreshCache($cacheKey, $this->cacheTime, function () {
-                return $this->serviceData->getDocumentTemplateAlliancesByUser(Auth::user());
-            });
-        } else {
-            throw new \Exception('Invalid cacheKey provided');
+            $this->repository->delete($uuid->toString());
+            $this->s3Service->deleteFileFromStorage($existingTemplate->template_path_alliance);
+
+            $this->updateCaches(Auth::id(), $uuid);
+
+            $this->logger->info('Document template alliance deleted successfully', ['uuid' => $uuid->toString()]);
+            return true;
+        }, 'deleting document template alliance');
+    }
+
+    private function getAuthenticatedUser()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            throw new Exception("No authenticated user found");
         }
+        return $user;
+    }
+
+    private function prepareTemplateDetails(DocumentTemplateAllianceDTO $dto): array
+    {
+        $companySignature = $this->companySignatureRepository->findFirst();
+        
+        return [
+            ...$dto->toArray(),
+            'uuid' => Uuid::uuid4()->toString(),
+            'uploaded_by' => Auth::id(),
+            'signature_path_id' => $companySignature->id,
+        ];
+    }
+
+    private function getExistingTemplate(UuidInterface $uuid): object
+    {
+        $template = $this->repository->getByUuid($uuid->toString());
+        if (!$template) {
+            throw new TemplateNotFoundException("Template alliance not found");
+        }
+        return $template;
+    }
+
+    private function updateCaches(int $userId, UuidInterface $uuid): void
+    {
+        $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);
+        $this->userCacheService->forgetDataCacheByUuid(self::CACHE_KEY_TEMPLATE, $uuid->toString());
+        $this->userCacheService->updateSuperAdminCaches(self::CACHE_KEY_LIST);
+    }
+
+    private function createTemplate(array $details): object
+    {
+        if (isset($details['template_path_alliance'])) {
+            $details['template_path_alliance'] = $this->s3Service->storeAgreementFile(
+                $details['template_path_alliance'], 
+                self::TEMPLATE_S3_PATH
+            );
+        }
+        return $this->repository->store($details);
     }
 }
