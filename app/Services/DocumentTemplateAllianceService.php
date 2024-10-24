@@ -154,7 +154,7 @@ class DocumentTemplateAllianceService
     private function handleTemplatePathUpdate($newTemplatePath, string $existingPath): string
     {
         if ($newTemplatePath instanceof UploadedFile) {
-            $this->s3Service->deleteFileFromStorage($existingPath);
+            $this->s3Service->deleteFromStorageAgreement($existingPath);
             return $this->s3Service->storeAgreementFile($newTemplatePath, self::TEMPLATE_S3_PATH);
         }
         
@@ -176,7 +176,7 @@ class DocumentTemplateAllianceService
             $existingTemplate = $this->getExistingTemplate($uuid);
 
             $this->repository->delete($uuid->toString());
-            $this->s3Service->deleteFileFromStorage($existingTemplate->template_path_alliance);
+            $this->s3Service->deleteFromStorageAgreement($existingTemplate->template_path_alliance);
 
             $this->updateCaches(Auth::id(), $uuid);
 
