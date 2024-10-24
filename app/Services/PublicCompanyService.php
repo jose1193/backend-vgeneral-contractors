@@ -1,4 +1,4 @@
-<?php // app/Services/PublicCompanyService.php
+<?php
 
 declare(strict_types=1);
 
@@ -26,9 +26,6 @@ class PublicCompanyService
         private readonly LoggerInterface $logger
     ) {}
 
-    /**
-     * Get all public companies
-     */
     public function all(): Collection
     {
         try {
@@ -45,12 +42,10 @@ class PublicCompanyService
         }
     }
 
-    /**
-     * Store a new public company
-     */
     public function storeData(PublicCompanyDTO $dto): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto) {
+            $this->ensureCompanyNameDoesNotExist($dto->publicCompanyName);
             $details = $this->prepareCompanyDetails($dto);
             $company = $this->repository->store($details);
             
@@ -61,15 +56,12 @@ class PublicCompanyService
         }, 'storing public company');
     }
 
-    /**
-     * Update a public company
-     */
     public function updateData(PublicCompanyDTO $dto, UuidInterface $uuid): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
             $existingCompany = $this->getExistingCompany($uuid);
+            $this->validateUserPermission($existingCompany);
             
-        
             if ($dto->publicCompanyName !== $existingCompany->public_company_name) {
                 $this->ensureCompanyNameIsUnique($dto->publicCompanyName, $uuid);
             }
@@ -84,28 +76,6 @@ class PublicCompanyService
         }, 'updating public company');
     }
 
-    private function ensureCompanyNameIsUnique(string $name, UuidInterface $excludeUuid): void
-    {
-        try {
-        
-            $existingCompany = $this->repository->findByName($name);
-            
-            if ($existingCompany && $existingCompany->uuid !== $excludeUuid->toString()) {
-                throw new Exception("A public company with this name already exists.");
-            }
-        } catch (Exception $e) {
-            $this->logger->error('Error checking company name uniqueness', [
-                'name' => $name,
-                'exclude_uuid' => $excludeUuid->toString(),
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get a specific public company
-     */
     public function showData(UuidInterface $uuid): ?object
     {
         try {
@@ -123,28 +93,60 @@ class PublicCompanyService
         }
     }
 
-    /**
-     * Delete a public company
-     */
-    public function deleteData(UuidInterface $uuid): bool
-    {
-        return $this->transactionService->handleTransaction(function () use ($uuid) {
-            $existingCompany = $this->getExistingCompany($uuid);
-            
-            $this->repository->delete($uuid->toString());
-            $this->updateCaches(Auth::id(), $uuid);
-            
-            $this->logger->info('Public company deleted successfully', [
-                'uuid' => $uuid->toString()
-            ]);
-            
-            return true;
-        }, 'deleting public company');
+    public function deleteData(UuidInterface $uuid): bool     
+    {         
+        return $this->transactionService->handleTransaction(function () use ($uuid) {             
+        $existingCompany = $this->getExistingCompany($uuid);
+        
+        // Verificar que sea super admin
+        if (!$this->repository->isSuperAdmin(Auth::id())) {
+            throw new Exception("Unauthorized: Only super administrators can delete public companies.");
+        }
+                          
+        $this->repository->delete($uuid->toString());             
+        $this->updateCaches(Auth::id(), $uuid);                          
+        
+        $this->logger->info('Public company deleted successfully', [                 
+            'uuid' => $uuid->toString()             
+        ]);                          
+        
+            return true;         
+        }, 'deleting public company');     
     }
 
-    /**
-     * Get existing company or throw exception
-     */
+    
+    private function validateUserPermission(object $company): void
+    {
+        if (Auth::id() !== $company->user_id && !$this->repository->isSuperAdmin(Auth::id())) {
+            throw new Exception("Unauthorized: You can only update companies you have registered.");
+        }
+    }
+
+    private function ensureCompanyNameDoesNotExist(string $name): void
+    {
+        if ($this->repository->findByName($name)) {
+            throw new Exception("A public company with this name already exists.");
+        }
+    }
+
+    private function ensureCompanyNameIsUnique(string $name, UuidInterface $excludeUuid): void
+    {
+        try {
+            $existingCompany = $this->repository->findByName($name);
+            
+            if ($existingCompany && $existingCompany->uuid !== $excludeUuid->toString()) {
+                throw new Exception("A public company with this name already exists.");
+            }
+        } catch (Exception $e) {
+            $this->logger->error('Error checking company name uniqueness', [
+                'name' => $name,
+                'exclude_uuid' => $excludeUuid->toString(),
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
     private function getExistingCompany(UuidInterface $uuid): object
     {
         $company = $this->repository->getByUuid($uuid->toString());
@@ -154,31 +156,24 @@ class PublicCompanyService
         return $company;
     }
 
-    /**
-     * Prepare company details for creation
-     */
     private function prepareCompanyDetails(PublicCompanyDTO $dto): array
     {
         return [
             ...$dto->toArray(),
             'uuid' => Uuid::uuid4()->toString(),
+            'user_id' => Auth::id(),
         ];
     }
 
-    /**
-     * Prepare company details for update
-     */
     private function prepareUpdateDetails(PublicCompanyDTO $dto, UuidInterface $uuid): array
     {
         return [
             ...$dto->toArray(),
             'uuid' => $uuid->toString(),
+            'user_id' => Auth::id(),
         ];
     }
 
-    /**
-     * Update all related caches
-     */
     private function updateCaches(int $userId, UuidInterface $uuid): void
     {
         $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);

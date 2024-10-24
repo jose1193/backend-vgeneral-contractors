@@ -6,6 +6,8 @@ use App\Models\AllianceCompany;
 use App\Interfaces\AllianceCompanyRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Models\User;
+
 
 class AllianceCompanyRepository implements AllianceCompanyRepositoryInterface
 {
@@ -79,5 +81,10 @@ class AllianceCompanyRepository implements AllianceCompanyRepositoryInterface
     public function findByName(string $name): ?AllianceCompany
     {
         return AllianceCompany::where('alliance_company_name', $name)->first();
+    }
+
+    public function isSuperAdmin(int $userId): bool
+    {
+        return User::findOrFail($userId)->hasRole('Super Admin');
     }
 }

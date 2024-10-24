@@ -2532,6 +2532,7 @@ $spectatorUser->assignRole($spectatorRole);
                 'phone' => $company['phone'],
                 'email' => $company['email'],
                 'website' => $company['website'],
+                'user_id' => 1,
             ]);
         }
           // EN INSURANCE COMPANY
@@ -2559,6 +2560,7 @@ $spectatorUser->assignRole($spectatorRole);
                 'phone' => $company['phone'],
                 'email' => $company['email'],
                 'website' => $company['website'],
+                'user_id' => 1,
             ]);
         }
         

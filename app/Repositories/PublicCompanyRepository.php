@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\PublicCompany;
+use App\Models\User;
 use App\Interfaces\PublicCompanyRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -73,5 +74,10 @@ class PublicCompanyRepository implements PublicCompanyRepositoryInterface
     public function findByName(string $name): ?object
     {
         return PublicCompany::where('public_company_name', $name)->first();
+    }
+
+     public function isSuperAdmin(int $userId): bool
+    {
+        return User::findOrFail($userId)->hasRole('Super Admin');
     }
 }

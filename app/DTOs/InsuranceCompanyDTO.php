@@ -12,7 +12,8 @@ class InsuranceCompanyDTO
         public readonly ?string $address,
         public readonly ?string $phone,
         public readonly ?string $email,
-        public readonly ?string $website
+        public readonly ?string $website,
+        public readonly ?int $userId,
     ) {}
 
     public static function fromArray(array $data): self
@@ -23,7 +24,8 @@ class InsuranceCompanyDTO
             address: $data['address'] ?? null,
             phone: $data['phone'] ?? null,
             email: $data['email'] ?? null,
-            website: $data['website'] ?? null
+            website: $data['website'] ?? null,
+            userId: $data['user_id'] ?? null,
         );
     }
 
@@ -36,6 +38,7 @@ class InsuranceCompanyDTO
             'phone' => $this->phone,
             'email' => $this->email,
             'website' => $this->website,
+            'user_id' => $this->userId,
         ];
     }
 }

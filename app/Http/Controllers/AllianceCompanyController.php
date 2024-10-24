@@ -21,7 +21,7 @@ class AllianceCompanyController extends BaseController
 
     public function __construct(AllianceCompanyService $dataService)
     {
-        $this->middleware('check.permission:Super Admin')->only(['store', 'update', 'destroy']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'show','store','update']);
         $this->dataService = $dataService;
     }
 

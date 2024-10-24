@@ -21,7 +21,7 @@ class PublicCompanyController extends BaseController
 
     public function __construct(PublicCompanyService $dataService)
     {
-        $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'show', 'update', 'destroy']);
+        $this->middleware('check.permission:Salesperson')->only(['index', 'show','store','update']);
         $this->dataService = $dataService;
     }
 

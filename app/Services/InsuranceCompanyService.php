@@ -54,7 +54,7 @@ class InsuranceCompanyService
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $uuid, $prohibitedAlliances) {
             $existingCompany = $this->getExistingCompany($uuid);
-            $this->validateUserPermission();
+            $this->validateUserPermission($existingCompany);
             $this->ensureCompanyNameIsUnique($dto->insuranceCompanyName, $uuid);
 
             $updateDetails = $this->prepareUpdateDetails($dto, $uuid);
@@ -77,35 +77,37 @@ class InsuranceCompanyService
         );
     }
 
-   public function deleteData(UuidInterface $uuid): bool
-{
+    public function deleteData(UuidInterface $uuid): bool 
+    {
         return $this->transactionService->handleTransaction(function () use ($uuid) {
-            // Obtener la compañía existente
-            $existingCompany = $this->getExistingCompany($uuid);
+        // Obtener la compañía existente
+        $existingCompany = $this->getExistingCompany($uuid);
         
-            // Verificar los permisos del usuario
-            $this->validateUserPermission();
-
+        // Verificar que sea super admin
+        if (!$this->repository->isSuperAdmin(Auth::id())) {
+            throw new Exception("Unauthorized: Only super administrators can delete companies.");
+        }
         
-            $associatedAlliances = $existingCompany->alliances()->get();
+        // Obtener las alianzas asociadas
+        $associatedAlliances = $existingCompany->alliances()->get();
 
-            // Desvincular todas las alianzas asociadas
-            $existingCompany->alliances()->detach($associatedAlliances->pluck('id')->toArray());
+        // Desvincular todas las alianzas asociadas
+        $existingCompany->alliances()->detach($associatedAlliances->pluck('id')->toArray());
 
-            // Eliminar la compañía
-            $this->repository->delete($uuid->toString());
+        // Eliminar la compañía
+        $this->repository->delete($uuid->toString());
 
-            // Actualizar caches, logs, etc.
-            $this->updateCaches(Auth::id(), $uuid);
+        // Actualizar caches, logs, etc.
+        $this->updateCaches(Auth::id(), $uuid);
         
-            $this->logger->info('Insurance company deleted and all alliances detached', [
+        $this->logger->info('Insurance company deleted and all alliances detached', [
             'uuid' => $uuid->toString(),
             'detached_alliances' => $associatedAlliances->pluck('id')->toArray()
-            ]);
+        ]);
         
             return true;
         }, 'deleting insurance company and detaching alliances');
-}
+    }
 
         private function ensureCompanyNameDoesNotExist(string $name): void
         {
@@ -141,15 +143,12 @@ class InsuranceCompanyService
             return $company;
         }
 
-        private function validateUserPermission(): void
-        {
-
-    
-            // Verificar si el usuario es Super Admin
-            if (!$this->repository->isSuperAdmin(Auth::id())) {
-            throw new Exception("No permission to perform this operation.");
-            }
+        private function validateUserPermission(object $insurance): void
+    {
+        if (Auth::id() !== $insurance->user_id && !$this->repository->isSuperAdmin(Auth::id())) {
+            throw new Exception("Unauthorized: You can only update insurance you have registered.");
         }
+    }
 
         private function ensureCompanyNameIsUnique(string $name, UuidInterface $uuid): void
     {

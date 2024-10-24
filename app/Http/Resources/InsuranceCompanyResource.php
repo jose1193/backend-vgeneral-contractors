@@ -26,6 +26,8 @@ class InsuranceCompanyResource extends JsonResource
             'phone' => $this->phone,
             'email' => $this->email,
             'website' => $this->website,
+            'created_by_user' => $this->user ? new UserResource($this->user) : null,
+            
             'alliance_companies' => $this->alliances ? AllianceCompanyResource::collection($this->alliances) : null,
             'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
             'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,

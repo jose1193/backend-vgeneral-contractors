@@ -26,9 +26,6 @@ class AllianceCompanyService
         private readonly LoggerInterface $logger
     ) {}
 
-    /**
-     * Get all alliance companies
-     */
     public function all(): Collection
     {
         try {
@@ -45,12 +42,10 @@ class AllianceCompanyService
         }
     }
 
-    /**
-     * Store a new alliance company
-     */
     public function storeData(AllianceCompanyDTO $dto): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto) {
+            $this->ensureCompanyNameDoesNotExist($dto->allianceCompanyName);
             $details = $this->prepareCompanyDetails($dto);
             $company = $this->repository->store($details);
             
@@ -61,13 +56,11 @@ class AllianceCompanyService
         }, 'storing alliance company');
     }
 
-    /**
-     * Update an alliance company
-     */
     public function updateData(AllianceCompanyDTO $dto, UuidInterface $uuid): object
     {
         return $this->transactionService->handleTransaction(function () use ($dto, $uuid) {
             $existingCompany = $this->getExistingCompany($uuid);
+            $this->validateUserPermission($existingCompany);
             
             if ($dto->allianceCompanyName !== $existingCompany->alliance_company_name) {
                 $this->ensureCompanyNameIsUnique($dto->allianceCompanyName, $uuid);
@@ -81,6 +74,20 @@ class AllianceCompanyService
             
             return $company;
         }, 'updating alliance company');
+    }
+
+    private function validateUserPermission(object $company): void
+    {
+        if (Auth::id() !== $company->user_id && !$this->repository->isSuperAdmin(Auth::id())) {
+            throw new Exception("Unauthorized: You can only update companies you have registered.");
+        }
+    }
+
+    private function ensureCompanyNameDoesNotExist(string $name): void
+    {
+        if ($this->repository->findByName($name)) {
+            throw new Exception("An alliance company with this name already exists.");
+        }
     }
 
     private function ensureCompanyNameIsUnique(string $name, UuidInterface $excludeUuid): void
@@ -101,9 +108,6 @@ class AllianceCompanyService
         }
     }
 
-    /**
-     * Get a specific alliance company
-     */
     public function showData(UuidInterface $uuid): ?object
     {
         try {
@@ -121,28 +125,27 @@ class AllianceCompanyService
         }
     }
 
-    /**
-     * Delete an alliance company
-     */
-    public function deleteData(UuidInterface $uuid): bool
+    public function deleteData(UuidInterface $uuid): bool 
     {
         return $this->transactionService->handleTransaction(function () use ($uuid) {
-            $existingCompany = $this->getExistingCompany($uuid);
-            
-            $this->repository->delete($uuid->toString());
-            $this->updateCaches(Auth::id(), $uuid);
-            
-            $this->logger->info('Alliance company deleted successfully', [
-                'uuid' => $uuid->toString()
-            ]);
-            
-            return true;
+        $existingCompany = $this->getExistingCompany($uuid);
+        
+        // Validación específica para delete - solo super admin
+        if (!$this->repository->isSuperAdmin(Auth::id())) {
+            throw new Exception("Unauthorized: Only super administrators can delete companies.");
+        }
+        
+        $this->repository->delete($uuid->toString());
+        $this->updateCaches(Auth::id(), $uuid);
+        
+        $this->logger->info('Alliance company deleted successfully', [
+            'uuid' => $uuid->toString()
+        ]);
+        
+        return true;
         }, 'deleting alliance company');
     }
 
-    /**
-     * Get existing company or throw exception
-     */
     private function getExistingCompany(UuidInterface $uuid): object
     {
         $company = $this->repository->getByUuid($uuid->toString());
@@ -152,9 +155,6 @@ class AllianceCompanyService
         return $company;
     }
 
-    /**
-     * Prepare company details for creation
-     */
     private function prepareCompanyDetails(AllianceCompanyDTO $dto): array
     {
         return [
@@ -164,9 +164,6 @@ class AllianceCompanyService
         ];
     }
 
-    /**
-     * Prepare company details for update
-     */
     private function prepareUpdateDetails(AllianceCompanyDTO $dto, UuidInterface $uuid): array
     {
         return [
@@ -176,9 +173,6 @@ class AllianceCompanyService
         ];
     }
 
-    /**
-     * Update all related caches
-     */
     private function updateCaches(int $userId, UuidInterface $uuid): void
     {
         $this->userCacheService->forgetUserListCache(self::CACHE_KEY_LIST, $userId);

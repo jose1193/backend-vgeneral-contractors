@@ -16,6 +16,7 @@ class PublicCompany extends Model
         'email',
         'website',
         'unit',
+        'user_id',
     ];
 
      public function publicAdjuster()
@@ -26,5 +27,10 @@ class PublicCompany extends Model
     public function publicCompanyAssignments()
     {
         return $this->hasMany(PublicCompanyAssignment::class);
+    }
+
+     public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

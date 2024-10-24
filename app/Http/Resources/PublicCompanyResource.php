@@ -23,6 +23,7 @@ class PublicCompanyResource extends JsonResource
             'email' => $this->email,
             'website' => $this->website,
             'unit' => $this->unit,
+            'created_by_user' => $this->user ? new UserResource($this->user) : null,
             'created_at' => $this->created_at ? $this->created_at->toDateTimeString() : null,
             'updated_at' => $this->updated_at ? $this->updated_at->toDateTimeString() : null,
         ];

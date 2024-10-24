@@ -15,6 +15,7 @@ class InsuranceCompany extends Model
         'phone',
         'email',
         'website',
+        'user_id'
     ];
 
     public function insuranceAdjuster()
@@ -30,5 +31,10 @@ class InsuranceCompany extends Model
     public function alliances()
     {
         return $this->belongsToMany(AllianceCompany::class, 'alliance_prohibited_insurances', 'insurance_company_id', 'alliance_company_id');
+    }
+
+     public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

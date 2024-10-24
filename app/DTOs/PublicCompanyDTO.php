@@ -13,7 +13,8 @@ class PublicCompanyDTO
         public readonly ?string $phone,
         public readonly ?string $email,
         public readonly ?string $website,
-        public readonly ?string $unit
+        public readonly ?string $unit,
+        public readonly ?int $userId,
     ) {}
 
     public static function fromArray(array $data): self
@@ -25,7 +26,8 @@ class PublicCompanyDTO
             phone: $data['phone'] ?? null,
             email: $data['email'] ?? null,
             website: $data['website'] ?? null,
-            unit: $data['unit'] ?? null
+            unit: $data['unit'] ?? null,
+            userId: $data['user_id'] ?? null,
         );
     }
 
@@ -38,7 +40,8 @@ class PublicCompanyDTO
             'phone' => $this->phone,
             'email' => $this->email,
             'website' => $this->website,
-            'unit' => $this->unit
+            'unit' => $this->unit,
+            'user_id' => $this->userId,
         ];
     }
 }
