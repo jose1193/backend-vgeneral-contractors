@@ -160,13 +160,13 @@ class S3Service
         return Storage::disk('s3')->url($s3Path);
     }
 
-    private function getRelativePath(string $fullUrl): string
-    {
-        $parsedUrl = parse_url($fullUrl);
-        $relativePath = ltrim($parsedUrl['path'] ?? '', '/');
-        $bucketName = env('AWS_BUCKET');
-        return preg_replace("/^{$bucketName}\//", '', $relativePath);
-    }
+    //private function getRelativePath(string $fullUrl): string
+    //{
+        //$parsedUrl = parse_url($fullUrl);
+        //$relativePath = ltrim($parsedUrl['path'] ?? '', '/');
+        //$bucketName = env('AWS_BUCKET');
+        //return preg_replace("/^{$bucketName}\//", '', $relativePath);
+    //}
 
     private function storeAndResizeProfilePhoto($image, string $storagePath): ?string
     {
@@ -242,62 +242,68 @@ class S3Service
     
     public function deleteFromStorageAgreement($fullUrl): bool 
     {
-        // Si el URL está vacío, retornamos false
         if (empty($fullUrl)) {
-        Log::warning("URL vacío proporcionado para eliminación de acuerdo");
-        return false;
+            Log::warning("URL vacío proporcionado para eliminación de acuerdo");
+            return false;
         }
 
         try {
-        // Obtener el nombre del archivo del URL
-        $fileName = basename($fullUrl);
-        
-        // Asegurarnos que el nombre del archivo esté correctamente formateado
-        $sanitizedFileName = str_replace(' ', '-', $fileName);
-        $sanitizedFileName = preg_replace('/[^A-Za-z0-9\-._]/', '', $sanitizedFileName);
-        
-        // Log para debugging
-        Log::info("Intentando eliminar acuerdo", [
-            'original_name' => $fileName,
-            'sanitized_name' => $sanitizedFileName
-        ]);
-
-        // Primero intentamos con el nombre original
-        if (Storage::disk('s3')->exists($fileName)) {
-            $result = Storage::disk('s3')->delete($fileName);
-            Log::info("Archivo de acuerdo eliminado con nombre original", [
-                'success' => $result,
-                'filename' => $fileName
+            // Get the relative path from the full URL
+            $relativePath = $this->getRelativePath($fullUrl);
+            
+            // Log the attempt
+            Log::info("Intentando eliminar acuerdo", [
+                'full_url' => $fullUrl,
+                'relative_path' => $relativePath
             ]);
-            return $result;
-        }
-        
-        // Si no existe, intentamos con el nombre sanitizado
-        if (Storage::disk('s3')->exists($sanitizedFileName)) {
-            $result = Storage::disk('s3')->delete($sanitizedFileName);
-            Log::info("Archivo de acuerdo eliminado con nombre sanitizado", [
-                'success' => $result,
-                'filename' => $sanitizedFileName
-            ]);
-            return $result;
-        }
 
-        // Si llegamos aquí, el archivo no existe
-        Log::warning("El archivo de acuerdo no existe en S3", [
-            'original_name' => $fileName,
-            'sanitized_name' => $sanitizedFileName
-        ]);
-        
-        return false;
+            // Check if file exists and delete it
+            if (Storage::disk('s3')->exists($relativePath)) {
+                $result = Storage::disk('s3')->delete($relativePath);
+                Log::info("Resultado de eliminación de archivo", [
+                    'success' => $result,
+                    'path' => $relativePath
+                ]);
+                return $result;
+            }
+
+            Log::warning("El archivo de acuerdo no existe en S3", [
+                'relative_path' => $relativePath
+            ]);
+            return false;
 
         } catch (\Exception $e) {
-        Log::error("Error al eliminar archivo de acuerdo de S3", [
-            'filename' => $fullUrl,
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-        return false;
+            Log::error("Error al eliminar archivo de acuerdo de S3", [
+                'full_url' => $fullUrl,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
         }
+    }
+
+    private function getRelativePath(string $fullUrl): string
+    {
+        // Remove any query parameters
+        $fullUrl = strtok($fullUrl, '?');
+        
+        // Parse the URL
+        $parsedUrl = parse_url($fullUrl);
+        
+        // Get the path component
+        $path = $parsedUrl['path'] ?? '';
+        
+        // Remove leading slash and bucket name if present
+        $path = ltrim($path, '/');
+        $bucketName = env('AWS_BUCKET');
+        $path = preg_replace("/^{$bucketName}\//", '', $path);
+        
+        Log::debug("URL parsing results", [
+            'original_url' => $fullUrl,
+            'parsed_path' => $path
+        ]);
+        
+        return $path;
     }
 
 }
