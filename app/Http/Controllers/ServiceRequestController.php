@@ -16,7 +16,7 @@ class ServiceRequestController extends BaseController
     public function __construct(ServiceRequestService $service)
     {
         // Middleware para permisos, ajusta según sea necesario
-        $this->middleware('check.permission:Super Admin')->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+        $this->middleware('check.permission:Super Admin')->only(['destroy']);
         
         $this->service = $service;
     }

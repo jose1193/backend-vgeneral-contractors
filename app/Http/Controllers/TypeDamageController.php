@@ -20,7 +20,7 @@ class TypeDamageController extends BaseController
 
     public function __construct(TypeDamageService $dataService)
     {
-        $this->middleware('check.permission:Super Admin')->only(['index', 'store', 'show', 'update', 'destroy']);
+        $this->middleware('check.permission:Super Admin')->only(['store', 'show', 'update', 'destroy']);
         $this->dataService = $dataService;
     }
 

@@ -20,7 +20,7 @@ class InsuranceCompanyController extends BaseController
 
     public function __construct(InsuranceCompanyService $dataService)
     {
-        $this->middleware('check.permission:Salesperson')->only(['index', 'show','store','update']);
+        $this->middleware('check.permission:Super Admin')->only(['destroy']);
         $this->dataService = $dataService;
     }
 
