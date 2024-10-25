@@ -73,15 +73,56 @@ class SignatureService
     }
 
     private function downloadImageFromUrl(string $url): ?string
-    {
+{
+    try {
         $localImagePath = storage_path('app/temp_signature.png');
-        $imageContents = file_get_contents($url);
 
-        if ($imageContents !== false) {
-            file_put_contents($localImagePath, $imageContents);
+        // Si la URL es local (comienza con /)
+        if (str_starts_with($url, '/')) {
+            $localPath = public_path(ltrim($url, '/'));
+            if (file_exists($localPath)) {
+                copy($localPath, $localImagePath);
+                return $localImagePath;
+            }
+            Log::error('Local file not found', ['path' => $localPath]);
+            return null;
+        }
+
+        // Si es una URL de S3
+        if (str_contains($url, 's3.amazonaws.com')) {
+            // Extraer la ruta relativa de S3
+            $path = str_replace(
+                ['https://', config('filesystems.disks.s3.url'), '//'], 
+                ['', '', '/'], 
+                $url
+            );
+            $path = ltrim($path, '/');
+
+            // Usar Storage para S3
+            $contents = Storage::disk('s3')->get($path);
+            if ($contents) {
+                file_put_contents($localImagePath, $contents);
+                return $localImagePath;
+            }
+        }
+
+        // Para cualquier otra URL
+        $contents = file_get_contents($url);
+        if ($contents !== false) {
+            file_put_contents($localImagePath, $contents);
             return $localImagePath;
         }
 
+        Log::error('Failed to download image', ['url' => $url]);
+        return null;
+
+    } catch (\Exception $e) {
+        Log::error('Error downloading image: ' . $e->getMessage(), [
+            'url' => $url,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
         return null;
     }
+}
 }
