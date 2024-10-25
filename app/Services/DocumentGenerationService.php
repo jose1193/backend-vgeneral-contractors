@@ -73,8 +73,18 @@ class DocumentGenerationService
         string $clientNamesFile,
         array $primaryCustomerData,
         string $agreementType
-    ): string {
+    ):string {
+    // Añade logs para debug
+    Log::info('Template path: ' . $localTempPath);
+    Log::info('Template exists: ' . (file_exists($localTempPath) ? 'yes' : 'no'));
+    Log::info('Template permissions: ' . substr(sprintf('%o', fileperms($localTempPath)), -4));
+
+    try {
         $templateProcessor = new TemplateProcessor($localTempPath);
+    } catch (\Exception $e) {
+        Log::error('TemplateProcessor error: ' . $e->getMessage());
+        throw $e;
+    }
         $values = $this->prepareTemplateValues($existingClaim, $clientNamesFile, $primaryCustomerData, $agreementType);
 
         $this->setTemplateValues($templateProcessor, $values);
