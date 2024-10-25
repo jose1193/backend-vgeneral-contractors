@@ -35,7 +35,7 @@ class CustomerService
         return $this->userCacheService->getCachedUserList(
             self::CACHE_KEY_USER_LIST,
             Auth::id(),
-            fn() => $this->repository->index()
+            fn() => $this->repository->getByUser(Auth::user())
         );
     }
 
